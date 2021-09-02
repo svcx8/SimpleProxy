@@ -25,8 +25,6 @@ add_executable (Proxy
     "proxy_server.cc"
     "proxy_socket.cc"
     "proxy_conn.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/echo/echo_conn.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/echo/echo_server.cc"
 )
 
 # 添加静态库

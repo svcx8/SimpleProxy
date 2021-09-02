@@ -19,13 +19,13 @@ int main() {
         Server::GetInstance().Start(Port);
 
 #if defined __unix__
-        IPoller* ServerPoller = new EPoller(EPoller::tEchoServer, 1);
+        IPoller* ServerPoller = new EPoller(new EchoServer(), 1);
         constexpr long flags = EPOLLIN;
 #endif
 
         ServerPoller->AddSocket(Server::GetInstance().server_socket_, flags);
 
-        IPoller* ConnPoller = new EPoller(EPoller::tEchoConn, 2);
+        IPoller* ConnPoller = new EPoller(new EchoConn(), 2);
         EPoller::reserved_list_.push_back(ConnPoller);
 
         // SubReactor

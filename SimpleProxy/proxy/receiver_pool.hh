@@ -15,15 +15,15 @@ public:
     int Usage() {
         return end_ - start_;
     }
-    void Clear(int Socket);
-    int Transfer(int Socket);
+    void Clear(int s);
+    int Transfer(int s);
     unsigned char* GetPtr() {
         return &buffer_[end_];
     }
     static int buffer_size_;
-    static void Init(int PoolSize, int BufferSize);
-    static ReceiverPool* GetPool(int Socket);
-    static void Remove(int Socket);
+    static void Init(int pool_size, int buffer_size);
+    static ReceiverPool* GetPool(int s);
+    static void Remove(int s);
 
 private:
     ReceiverPool* GetBufferPoll();

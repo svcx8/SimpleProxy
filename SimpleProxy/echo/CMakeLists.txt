@@ -20,12 +20,6 @@ add_executable (Echo
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/server/server.cc"
     "echo_conn.cc"
     "echo_server.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/proxy/proxy_client.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/proxy/proxy_server.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/proxy/proxy_conn.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/proxy/receiver_pool.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/proxy/proxy_socket.cc"
-    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/proxy/socks5.cc"
 )
 
 # 添加静态库

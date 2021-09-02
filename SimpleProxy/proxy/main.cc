@@ -1,3 +1,4 @@
+#include "proxy_client.hh"
 #include "proxy_conn.hh"
 #include "proxy_server.hh"
 #include "receiver_pool.hh"
@@ -23,20 +24,20 @@ int main() {
 #endif
 
     try {
-        constexpr int Port = 2333;
-        Server::GetInstance().Start(Port);
+        constexpr int port = 2333;
+        Server::GetInstance().Start(port);
 
-        IPoller* poller = new EPoller(EPoller::tProxyServer, 1);
+        IPoller* poller = new EPoller(new ProxyServer(), 1);
         constexpr long flags = EPOLLIN;
 
         poller->AddSocket(Server::GetInstance().server_socket_, flags);
 
         ReceiverPool::Init(10, 4 * 1024 * 1024);
 
-        IPoller* ConnPoller = new EPoller(EPoller::tProxyConn, 3);
+        IPoller* ConnPoller = new EPoller(new ProxyConn(), 3);
         EPoller::reserved_list_.push_back(ConnPoller);
 
-        IPoller* ClientPoller = new EPoller(EPoller::tProxyClient, 4);
+        IPoller* ClientPoller = new EPoller(new ProxyClient(), 4);
         EPoller::reserved_list_.push_back(ClientPoller);
 
         std::thread([&] {

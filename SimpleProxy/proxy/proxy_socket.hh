@@ -15,7 +15,7 @@ public:
     SocketPair* GetPointer(int);
 
 private:
-    std::vector<SocketPair*> SocketList;
+    std::vector<SocketPair*> socket_list_;
 };
 
 #endif // proxy_socket.hh

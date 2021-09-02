@@ -34,8 +34,8 @@ Socks5Command::Socks5Command(unsigned char* buffer) {
     ptr[2] = buffer[index + 1];
     ptr[3] = buffer[index];
     index += 4;
-    short src = *(short*)&buffer[index];
-    port_ = ((src >> 8) & 0xFF) | ((src & 0xFF) << 8);
+    short port_le = *(short*)&buffer[index];
+    port_ = ((port_le >> 8) & 0xFF) | ((port_le & 0xFF) << 8);
     LOG("[!!] remote_address_: %d.%d.%d.%d:%d", ptr[3], ptr[2], ptr[1], ptr[0], port_);
 }
 
