@@ -26,7 +26,7 @@ int main() {
         ServerPoller->AddSocket(Server::GetInstance().server_socket_, flags);
 
         IPoller* ConnPoller = new EPoller(EPoller::tEchoConn, 2);
-        EPoller::ReservedList.push_back(ConnPoller);
+        EPoller::reserved_list_.push_back(ConnPoller);
 
         // SubReactor
         std::thread([&] {

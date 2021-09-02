@@ -13,10 +13,10 @@ public:
     // while (IsRunning) {
     virtual void Poll() = 0;
     // }
-    void SetBusiness(IBusinessEvent* op) { Op = op; }
+    void SetBusiness(IBusinessEvent* op) { op_ = op; }
 
 protected:
-    IBusinessEvent* Op = nullptr;
+    IBusinessEvent* op_ = nullptr;
 };
 
 #endif // ipoller.hh

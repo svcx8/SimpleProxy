@@ -6,7 +6,5 @@ cmake_minimum_required (VERSION 3.8)
 project ("SimpleProxy")
 
 # 包含子项目。
-#add_subdirectory ("SimpleProxy/client")
 add_subdirectory ("SimpleProxy/echo")
-#add_subdirectory ("SimpleProxy/server")
-#add_subdirectory ("SimpleProxy/mitm")
+add_subdirectory ("SimpleProxy/proxy")

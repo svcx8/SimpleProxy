@@ -19,7 +19,7 @@ void EchoServer::OnReadable(SOCKET Socket) {
     }
     LOG("NewSocket: %d", NewSocket);
 
-    for (auto& P : EPoller::ReservedList) {
+    for (auto& P : EPoller::reserved_list_) {
         if (P->AddSocket(NewSocket, flags) == -1) {
             LOG("[EchoServer] Failed to add event");
             CloseSocket(NewSocket);

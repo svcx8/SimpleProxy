@@ -14,7 +14,7 @@ public:
     virtual void OnCloseable(SOCKET) = 0;
     virtual void OnReadable(SOCKET) = 0;
     virtual void OnWritable(SOCKET) = 0;
-    IPoller* Poller = nullptr;
+    IPoller* poller_ = nullptr;
 };
 
 #endif // ibusiness_event.hh

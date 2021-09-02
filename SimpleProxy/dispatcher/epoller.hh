@@ -6,6 +6,10 @@
 #include <echo/echo_conn.hh>
 #include <echo/echo_server.hh>
 
+#include <proxy/proxy_client.hh>
+#include <proxy/proxy_conn.hh>
+#include <proxy/proxy_server.hh>
+
 #include <sys/epoll.h>
 
 #include <array>
@@ -17,10 +21,13 @@ class EPoller : public IPoller {
 public:
     enum PollType {
         tEchoConn,
-        tEchoServer
+        tEchoServer,
+        tProxyClient,
+        tProxyServer,
+        tProxyConn
     };
 
-    int Id = 0;
+    int id_ = 0;
     EPoller(PollType type, int _id);
     ~EPoller(){};
 
@@ -34,10 +41,10 @@ public:
     std::array<epoll_event, MAX_EVENT_NUMBER> EventArray{};
 
     static int SetNonBlocking(int);
-    static std::vector<IPoller*> ReservedList; // SubReactor list
+    static std::vector<IPoller*> reserved_list_; // SubReactor list
 
 private:
-    SOCKET EPollInst = 0;
+    SOCKET epoller_inst_ = 0;
 };
 
 #endif
