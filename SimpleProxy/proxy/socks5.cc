@@ -1,7 +1,5 @@
 #include "socks5.hh"
 
-#include <misc/logger.hh>
-
 Socks5Header::Socks5Header(unsigned char* buffer) {
     version_ = buffer[0];
     auth_method_count_ = buffer[1];
@@ -23,24 +21,36 @@ bool Socks5Header::Check() {
 
 Socks5Command::Socks5Command(unsigned char* buffer) {
     int index = 0;
-    unsigned char* ptr = (unsigned char*)&remote_address_;
     version_ = buffer[index++];
     command_ = buffer[index++];
     reserved_ = buffer[index++];
     address_type_ = buffer[index++];
-    // Remote address.
-    ptr[0] = buffer[index + 3];
-    ptr[1] = buffer[index + 2];
-    ptr[2] = buffer[index + 1];
-    ptr[3] = buffer[index];
-    index += 4;
-    short port_le = *(short*)&buffer[index];
-    port_ = ((port_le >> 8) & 0xFF) | ((port_le & 0xFF) << 8);
-    LOG("[!!] remote_address_: %d.%d.%d.%d:%d", ptr[3], ptr[2], ptr[1], ptr[0], port_);
+
+    if (address_type_ == 0x3) {
+        throw MyEx("Domain resolution not implemented");
+    }
+
+    else if (address_type_ == 0x01) {
+        address_struct_.sockaddr_in.sin_family = AF_INET;
+        address_struct_.sockaddr_in.sin_addr.s_addr = *(uintptr_t*)&buffer[index];
+        index += 4;
+        address_struct_.sockaddr_in.sin_port = *(unsigned short*)&buffer[index];
+    }
+
+    else if (address_type_ == 0x04) {
+        address_struct_.sockaddr_in6.sin6_family = AF_INET6;
+        std::memcpy(address_struct_.sockaddr_in6.sin6_addr.in6_u.u6_addr8, &buffer[index], 16);
+        index += 16;
+        address_struct_.sockaddr_in6.sin6_port = *(unsigned short*)&buffer[index];
+    }
+
+    else {
+        throw MyEx("wtf ATYP");
+    }
 }
 
 bool Socks5Command::Check() {
-    return version_ == 0x5 && command_ == 1 && address_type_ == 1; // Support ipv4 and tcp only.
+    return version_ == 0x5 && command_ == 1; // Support ipv4&ipv6 and tcp only.
 }
 
 const char Socks5Command::reply_success[] = {

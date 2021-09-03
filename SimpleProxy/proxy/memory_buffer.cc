@@ -8,8 +8,7 @@ static SimplePool<2, sizeof(MemoryBuffer)> memory_pool;
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
     if (buffer_array_[s] == nullptr) {
-        auto allocated = static_cast<MemoryBuffer*>(memory_pool.Allocate());
-        buffer_array_[s] = allocated;
+        buffer_array_[s] = static_cast<MemoryBuffer*>(memory_pool.Allocate());
     }
     return buffer_array_[s];
 }

@@ -1,6 +1,8 @@
 #ifndef SOCKS5_HEADER
 #define SOCKS5_HEADER
 
+#include <misc/net.hh>
+
 class SocketPair {
 public:
     int this_side_;
@@ -19,12 +21,16 @@ public:
 
 class Socks5Command {
 public:
+    typedef union {
+        struct sockaddr sockaddr;
+        struct sockaddr_in sockaddr_in;
+        struct sockaddr_in6 sockaddr_in6;
+    } ngx_sockaddr_t;
     unsigned char version_;
     unsigned char command_;
     unsigned char reserved_;
     unsigned char address_type_;
-    int remote_address_;
-    short int port_;
+    ngx_sockaddr_t address_struct_;
     Socks5Command(unsigned char* buffer);
     bool Check();
     static const char reply_success[];

@@ -39,29 +39,33 @@ int main() {
 
         std::thread([&] {
             LOG("ConnPoller Start");
-            try {
-                while (true) {
+            while (true) {
+                try {
                     ConnPoller->Poll();
+                } catch (BaseException& ex) {
+                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
-            } catch (BaseException& ex) {
-                LOG("Exception: %s[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
             }
         }).detach();
 
         std::thread([&] {
-            try {
-                while (true) {
+            while (true) {
+                try {
                     ClientPoller->Poll();
+                } catch (BaseException& ex) {
+                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
-            } catch (BaseException& ex) {
-                LOG("Exception: %s[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
             }
         }).detach();
 
         while (true) {
-            poller->Poll();
+            try {
+                poller->Poll();
+            } catch (BaseException& ex) {
+                LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+            }
         }
     } catch (BaseException& ex) {
-        LOG("Exception: %s[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+        LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
     }
 }

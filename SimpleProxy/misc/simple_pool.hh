@@ -1,11 +1,6 @@
 #ifndef SIMPLE_POOL_HEADER
 #define SIMPLE_POOL_HEADER
 
-#include <misc/singleton.hh>
-
-#include <map>
-#include <vector>
-
 template <int number, int size>
 class SimplePool {
 public:

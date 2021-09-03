@@ -6,8 +6,8 @@
 constexpr long flags = EPOLLIN;
 #endif
 
-void ProxyServer::OnReadable(SOCKET Socket) {
-    SOCKET NewSocket = accept(Socket, nullptr, nullptr);
+void ProxyServer::OnReadable(SOCKET s) {
+    SOCKET NewSocket = accept(s, nullptr, nullptr);
     if (NewSocket == SOCKET_ERROR) {
         throw NetEx();
     }

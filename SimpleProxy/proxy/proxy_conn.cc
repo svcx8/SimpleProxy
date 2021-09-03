@@ -17,57 +17,67 @@ constexpr long flags = EPOLLIN | EPOLLOUT;
 
 void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
     char head_buf[256];
-
-    int recv_len = recv(pair->this_side_, head_buf, 256, 0);
-    if (recv_len == SOCKET_ERROR) {
-        throw NetEx();
-    }
-
-    if (pair->authentified_ == 0) {
-        // First handshake, check valid socks5 header.
-        Socks5Header head((unsigned char*)head_buf);
-        if (!head.Check()) {
-            throw MyEx("Unsupported version or methods.");
-        }
-        short int return_ver = 0x0005;
-        if (send(pair->this_side_, (char*)&return_ver, 2, 0) != 2) {
-            throw NetEx();
-        }
-    }
-
-    else if (pair->authentified_ == 1) {
-        // Second handshake, recv command.
-        if (recv_len != 10) {
-            throw MyEx("Invalid or Unsupported socks5 command.");
-        }
-        Socks5Command command((unsigned char*)head_buf);
-        if (!command.Check()) {
-            throw MyEx("Unsupported version or methods.");
-        }
-
-        pair->other_side_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
-        if (pair->other_side_ == SOCKET_ERROR) {
+    try {
+        int recv_len = recv(pair->this_side_, head_buf, 256, 0);
+        if (recv_len == SOCKET_ERROR) {
             throw NetEx();
         }
 
-        sockaddr_in proxy_to_server_addr;
-        proxy_to_server_addr.sin_family = AF_INET;
-        proxy_to_server_addr.sin_addr.s_addr = htonl(command.remote_address_);
-        proxy_to_server_addr.sin_port = htons(command.port_);
-        // Connect to server.
-        if (connect(pair->other_side_, (sockaddr*)&proxy_to_server_addr, sizeof(proxy_to_server_addr)) == SOCKET_ERROR) {
-            if (errno != EINPROGRESS) {
+        if (pair->authentified_ == 0) {
+            // First handshake, check valid socks5 header.
+            Socks5Header head((unsigned char*)head_buf);
+            if (!head.Check()) {
+                throw MyEx("Unsupported version or methods.");
+            }
+            short int return_ver = 0x0005;
+            if (send(pair->this_side_, (char*)&return_ver, 2, 0) != 2) {
                 throw NetEx();
             }
         }
 
-        if (EPoller::reserved_list_[1]->AddSocket(pair->other_side_, flags) == -1) {
-            LOG("[EchoServer] Failed to add event");
-            CloseSocket(pair->other_side_);
-            throw NetEx();
-        }
+        else if (pair->authentified_ == 1) {
+            // Second handshake, recv command.
+            Socks5Command command((unsigned char*)head_buf);
+            if (!command.Check()) {
+                throw MyEx("Unsupported version or methods.");
+            }
 
-        LOG("Server: %d | Port: %d", pair->other_side_, proxy_to_server_addr.sin_port);
+            if (command.address_type_ == 0x1) {
+                char buffer[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &command.address_struct_.sockaddr_in.sin_addr, buffer, sizeof(buffer));
+                printf("address: %s:%d\n", buffer, htons(command.address_struct_.sockaddr_in.sin_port));
+                pair->other_side_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+            } else if (command.address_type_ == 0x4) {
+                char buffer[INET6_ADDRSTRLEN];
+                inet_ntop(AF_INET6, &command.address_struct_.sockaddr_in6.sin6_addr, buffer, sizeof(buffer));
+                printf("address: %s:%d\n", buffer, htons(command.address_struct_.sockaddr_in6.sin6_port));
+                pair->other_side_ = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+            }
+            if (pair->other_side_ == SOCKET_ERROR) {
+                throw NetEx();
+            }
+
+            // Connect to server.
+            if (connect(pair->other_side_, (sockaddr*)&command.address_struct_, sizeof(command.address_struct_)) == SOCKET_ERROR) {
+                if (errno != EINPROGRESS) {
+                    throw NetEx();
+                }
+            }
+
+            if (EPoller::reserved_list_[1]->AddSocket(pair->other_side_, flags) == -1) {
+                LOG("[EchoServer] Failed to add event");
+                CloseSocket(pair->other_side_);
+                throw NetEx();
+            }
+
+            LOG("Server: %d | Type: %02X", pair->other_side_, command.address_type_);
+        }
+    } catch (BaseException& ex) {
+        if (pair->authentified_ == 1)
+            send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
+        EPoller::reserved_list_[0]->RemoveCloseSocket(pair->this_side_);
+        ProxySocket::GetInstance().RemovePair(pair->this_side_);
+        throw BaseException(ex.function_, ex.file_, ex.line_, ex.result_);
     }
     pair->authentified_++;
 }
@@ -75,6 +85,7 @@ void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 void ProxyConn::OnReadable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
     if (ptr == nullptr) {
+        // Memory leaked.
         SocketPair* pair = new SocketPair();
         pair->this_side_ = s;
         pair->authentified_ = 0;
