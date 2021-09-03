@@ -17,7 +17,6 @@ include_directories("${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}")
 # 将源代码添加到此项目的可执行文件。
 add_executable (Proxy
     "main.cc"
-    "receiver_pool.cc"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/dispatcher/epoller.cc"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/server/server.cc"
     "socks5.cc"
@@ -25,6 +24,7 @@ add_executable (Proxy
     "proxy_server.cc"
     "proxy_socket.cc"
     "proxy_conn.cc"
+    "memory_buffer.cc"
 )
 
 # 添加静态库

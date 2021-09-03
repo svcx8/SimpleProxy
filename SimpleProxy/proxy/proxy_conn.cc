@@ -1,8 +1,8 @@
 #include "proxy_conn.hh"
 
+#include "memory_buffer.hh"
 #include "proxy_client.hh"
 #include "proxy_socket.hh"
-#include "receiver_pool.hh"
 
 #include <dispatcher/epoller.hh>
 
@@ -87,9 +87,12 @@ void ProxyConn::OnReadable(SOCKET s) {
 
     else {
         // Receiving from Client, e.g. curl https://baidu.com
-        auto buffer_pool = ReceiverPool::GetPool(s);
+        auto buffer_pool = MemoryBuffer::GetPool(s);
         if (buffer_pool) {
-            int recv_len = recv(s, (char*)buffer_pool->buffer_, ReceiverPool::buffer_size_, 0);
+            int recv_len = recv(s, (char*)buffer_pool->buffer_, MemoryBuffer::buffer_size_, 0);
+            if (recv_len > buffer_pool->max_recv_len_) {
+                buffer_pool->max_recv_len_ = recv_len;
+            }
             if (recv_len > 0) {
                 buffer_pool->end_ += recv_len;
                 buffer_pool->Transfer(ptr->other_side_);
@@ -112,8 +115,8 @@ void ProxyConn::OnReadable(SOCKET s) {
 void ProxyConn::OnCloseable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
     LOG("[ProxyConn] OnCloseable: %d", s);
-    ReceiverPool::Remove(ptr->this_side_);
-    ReceiverPool::Remove(ptr->other_side_);
+    MemoryBuffer::RemovePool(ptr->this_side_);
+    MemoryBuffer::RemovePool(ptr->other_side_);
     EPoller::reserved_list_[0]->RemoveCloseSocket(ptr->this_side_);
     EPoller::reserved_list_[1]->RemoveCloseSocket(ptr->other_side_);
     ProxySocket::GetInstance().RemovePair(ptr->this_side_);

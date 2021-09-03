@@ -1,7 +1,6 @@
 #include "proxy_client.hh"
 #include "proxy_conn.hh"
 #include "proxy_server.hh"
-#include "receiver_pool.hh"
 
 #include <dispatcher/epoller.hh>
 #include <server/server.hh>
@@ -31,8 +30,6 @@ int main() {
         constexpr long flags = EPOLLIN;
 
         poller->AddSocket(Server::GetInstance().server_socket_, flags);
-
-        ReceiverPool::Init(10, 4 * 1024 * 1024);
 
         IPoller* ConnPoller = new EPoller(new ProxyConn(), 3);
         EPoller::reserved_list_.push_back(ConnPoller);
