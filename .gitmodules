@@ -1,0 +1,6 @@
+[submodule "SimpleProxy/third/cpr"]
+	path = SimpleProxy/third/cpr
+	url = https://github.com/whoshuu/cpr
+[submodule "SimpleProxy/third/rapidjson"]
+	path = SimpleProxy/third/rapidjson
+	url = https://github.com/Tencent/rapidjson
