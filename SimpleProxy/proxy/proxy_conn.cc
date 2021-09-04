@@ -85,12 +85,11 @@ void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 void ProxyConn::OnReadable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
     if (ptr == nullptr) {
-        // Memory leaked.
-        SocketPair* pair = new SocketPair();
+        auto pair = std::make_unique<SocketPair>();
         pair->this_side_ = s;
         pair->authentified_ = 0;
-        ProxySocket::GetInstance().AddPair(pair);
-        ptr = pair;
+        ptr = pair.get();
+        ProxySocket::GetInstance().AddPair(std::move(pair));
     }
     if (ptr->authentified_ < 3) {
         CheckSocks5Handshake(ptr);

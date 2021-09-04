@@ -3,7 +3,6 @@
 
 #include <dispatcher/ibusiness_event.hh>
 #include <dispatcher/ipoller.hh>
-#include "socks5.hh"
 
 class ProxyClient : public IBusinessEvent {
 public:

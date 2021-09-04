@@ -5,6 +5,8 @@
 #include <dispatcher/epoller.hh>
 #include <server/server.hh>
 
+#include <proxy/dns_resolver.hh>
+
 #include <thread>
 
 /*
@@ -17,31 +19,37 @@
 */
 
 int main() {
-#if defined WIN32
-    system("chcp 65001");
-    MyWinSocketSetup();
-#endif
-
     try {
+        // // DoH testing
+        // std::string domain("baidu.com");
+        // auto result = DNSResolver::ResolveDoH(domain);
+        // unsigned char* ptr = (unsigned char*)&result;
+        // LOG("%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
+
+        // // DNS testing
+        // result = DNSResolver::Resolve("cn.bing.com");
+        // ptr = (unsigned char*)&result;
+        // LOG("%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
+
         constexpr int port = 2333;
         Server::GetInstance().Start(port);
 
-        IPoller* poller = new EPoller(new ProxyServer(), 1);
+        IPoller* server_poller = new EPoller(new ProxyServer(), 1);
         constexpr long flags = EPOLLIN;
 
-        poller->AddSocket(Server::GetInstance().server_socket_, flags);
+        server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
 
-        IPoller* ConnPoller = new EPoller(new ProxyConn(), 3);
-        EPoller::reserved_list_.push_back(ConnPoller);
+        IPoller* conn_poller = new EPoller(new ProxyConn(), 3);
+        EPoller::reserved_list_.push_back(conn_poller);
 
-        IPoller* ClientPoller = new EPoller(new ProxyClient(), 4);
-        EPoller::reserved_list_.push_back(ClientPoller);
+        IPoller* client_poller = new EPoller(new ProxyClient(), 4);
+        EPoller::reserved_list_.push_back(client_poller);
 
         std::thread([&] {
-            LOG("ConnPoller Start");
+            LOG("[++] ConnPoller Start");
             while (true) {
                 try {
-                    ConnPoller->Poll();
+                    conn_poller->Poll();
                 } catch (BaseException& ex) {
                     LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
@@ -49,18 +57,20 @@ int main() {
         }).detach();
 
         std::thread([&] {
+            LOG("[++] ClientPoller Start");
             while (true) {
                 try {
-                    ClientPoller->Poll();
+                    client_poller->Poll();
                 } catch (BaseException& ex) {
                     LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
             }
         }).detach();
 
+        LOG("[++] ServerPoller Start");
         while (true) {
             try {
-                poller->Poll();
+                server_poller->Poll();
             } catch (BaseException& ex) {
                 LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
             }

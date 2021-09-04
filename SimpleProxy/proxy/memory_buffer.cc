@@ -4,7 +4,7 @@
 #include <misc/simple_pool.hh>
 
 std::map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
-static SimplePool<2, sizeof(MemoryBuffer)> memory_pool;
+static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
     if (buffer_array_[s] == nullptr) {

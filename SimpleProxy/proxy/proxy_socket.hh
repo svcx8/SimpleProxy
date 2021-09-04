@@ -5,17 +5,18 @@
 
 #include <misc/singleton.hh>
 
+#include <memory>
 #include <vector>
 
 class ProxySocket : public Singleton<ProxySocket> {
 public:
-    void AddPair(SocketPair*);
+    void AddPair(std::unique_ptr<SocketPair>&&);
     void RemovePair(int);
     int GetSocket(int);
     SocketPair* GetPointer(int);
 
 private:
-    std::vector<SocketPair*> socket_list_;
+    std::vector<std::unique_ptr<SocketPair>> socket_list_;
 };
 
 #endif // proxy_socket.hh
