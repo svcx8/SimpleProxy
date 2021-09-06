@@ -8,7 +8,6 @@ public:
     IPoller(){};
     virtual ~IPoller(){};
     virtual int AddSocket(int s, long eventflags) = 0;
-    virtual void RemoveSocket(int s) = 0;
     virtual void RemoveCloseSocket(int s) = 0;
     // while (IsRunning) {
     virtual void Poll() = 0;

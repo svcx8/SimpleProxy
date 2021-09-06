@@ -13,7 +13,7 @@ public:
     void OnAcceptable(SOCKET) override{};
     void OnReadable(SOCKET) override;
     void OnWritable(SOCKET) override{};
-    void OnCloseable(SOCKET) override;
+    void OnCloseable(SOCKET) override{};
 
 private:
     void HandShake(SocketPair* Pair);

@@ -43,14 +43,18 @@ void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
             }
 
             if (command.address_type_ == 0x1) {
+#ifndef NDEBUG
                 char buffer[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, &command.address_struct_.sockaddr_in.sin_addr, buffer, sizeof(buffer));
                 printf("address: %s:%d\n", buffer, htons(command.address_struct_.sockaddr_in.sin_port));
+#endif
                 pair->other_side_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
             } else if (command.address_type_ == 0x4) {
+#ifndef NDEBUG
                 char buffer[INET6_ADDRSTRLEN];
                 inet_ntop(AF_INET6, &command.address_struct_.sockaddr_in6.sin6_addr, buffer, sizeof(buffer));
                 printf("address: %s:%d\n", buffer, htons(command.address_struct_.sockaddr_in6.sin6_port));
+#endif
                 pair->other_side_ = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
             }
             if (pair->other_side_ == SOCKET_ERROR) {
@@ -64,18 +68,18 @@ void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
                 }
             }
 
-            if (EPoller::reserved_list_[1]->AddSocket(pair->other_side_, flags) == -1) {
+            if (ProxySocket::GetClientPoller(pair)->AddSocket(pair->other_side_, flags) == -1) {
                 LOG("[EchoServer] Failed to add event");
                 CloseSocket(pair->other_side_);
                 throw NetEx();
             }
 
-            LOG("Server: %d | Type: %02X", pair->other_side_, command.address_type_);
+            LOG("[ProxyConn] Server: %d | Type: %02X", pair->other_side_, command.address_type_);
         }
     } catch (BaseException& ex) {
         if (pair->authentified_ == 1)
             send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
-        EPoller::reserved_list_[0]->RemoveCloseSocket(pair->this_side_);
+        CloseSocket(pair->this_side_);
         ProxySocket::GetInstance().RemovePair(pair->this_side_);
         throw BaseException(ex.function_, ex.file_, ex.line_, ex.result_);
     }
@@ -84,13 +88,6 @@ void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 
 void ProxyConn::OnReadable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
-    if (ptr == nullptr) {
-        auto pair = std::make_unique<SocketPair>();
-        pair->this_side_ = s;
-        pair->authentified_ = 0;
-        ptr = pair.get();
-        ProxySocket::GetInstance().AddPair(std::move(pair));
-    }
     if (ptr->authentified_ < 3) {
         CheckSocks5Handshake(ptr);
     }
@@ -110,7 +107,12 @@ void ProxyConn::OnReadable(SOCKET s) {
 
 #if defined __unix__
             else if (recv_len == 0) {
-                OnCloseable(s);
+                LOG("[ProxyConn] OnCloseable: %d", ptr->this_side_);
+                MemoryBuffer::RemovePool(ptr->this_side_);
+                MemoryBuffer::RemovePool(ptr->other_side_);
+                CloseSocket(ptr->this_side_);
+                CloseSocket(ptr->other_side_);
+                ProxySocket::GetInstance().RemovePair(ptr->this_side_);
             }
 #endif
             else if (recv_len <= 0) {
@@ -120,14 +122,4 @@ void ProxyConn::OnReadable(SOCKET s) {
             LOG("GetPool return null");
         }
     }
-}
-
-void ProxyConn::OnCloseable(SOCKET s) {
-    auto ptr = ProxySocket::GetInstance().GetPointer(s);
-    LOG("[ProxyConn] OnCloseable: %d", s);
-    MemoryBuffer::RemovePool(ptr->this_side_);
-    MemoryBuffer::RemovePool(ptr->other_side_);
-    EPoller::reserved_list_[0]->RemoveCloseSocket(ptr->this_side_);
-    EPoller::reserved_list_[1]->RemoveCloseSocket(ptr->other_side_);
-    ProxySocket::GetInstance().RemovePair(ptr->this_side_);
 }

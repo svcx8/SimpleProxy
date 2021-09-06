@@ -7,7 +7,7 @@
 class ProxyClient : public IBusinessEvent {
 public:
     void OnAcceptable(SOCKET) override{};
-    void OnCloseable(SOCKET) override;
+    void OnCloseable(SOCKET) override{};
     void OnReadable(SOCKET) override;
     void OnWritable(SOCKET) override;
 };

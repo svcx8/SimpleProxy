@@ -33,5 +33,5 @@ void EchoConn::OnWritable(SOCKET Socket) {
 
 void EchoConn::OnCloseable(SOCKET Socket) {
     LOG("[EchoConn] OnCloseable");
-    poller_->RemoveCloseSocket(Socket);
+    CloseSocket(Socket);
 }

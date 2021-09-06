@@ -28,7 +28,12 @@ void ProxyClient::OnReadable(SOCKET s) {
 
 #if defined __unix__
     else if (recv_len == 0) {
-        OnCloseable(s);
+        LOG("[ProxyClient] OnCloseable: %d - %d", ptr->this_side_, ptr->other_side_);
+        MemoryBuffer::RemovePool(ptr->this_side_);
+        MemoryBuffer::RemovePool(ptr->other_side_);
+        CloseSocket(ptr->this_side_);
+        CloseSocket(ptr->other_side_);
+        ProxySocket::GetInstance().RemovePair(ptr->this_side_);
     }
 #endif
     else if (recv_len <= 0) {
@@ -50,13 +55,4 @@ void ProxyClient::OnWritable(SOCKET s) {
         buffer_pool->Transfer(pair->this_side_);
     }
     poller_->AddSocket(s, EPOLLIN);
-}
-
-void ProxyClient::OnCloseable(SOCKET s) {
-    auto ptr = ProxySocket::GetInstance().GetPointer(s);
-    MemoryBuffer::RemovePool(ptr->this_side_);
-    MemoryBuffer::RemovePool(ptr->other_side_);
-    EPoller::reserved_list_[0]->RemoveCloseSocket(ptr->this_side_);
-    EPoller::reserved_list_[1]->RemoveCloseSocket(ptr->other_side_);
-    ProxySocket::GetInstance().RemovePair(ptr->this_side_);
 }

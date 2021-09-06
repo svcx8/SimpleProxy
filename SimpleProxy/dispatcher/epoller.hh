@@ -4,6 +4,7 @@
 #ifdef __unix__
 
 #include <dispatcher/ipoller.hh>
+#include <proxy/socks5.hh>
 
 #include <sys/epoll.h>
 
@@ -18,12 +19,10 @@ public:
     EPoller(IBusinessEvent* business, int _id);
     ~EPoller(){};
 
-    int AddSocket(int s, long eventflags);
-    // Just close the socket fd. It will automatically deregister itself from epoll.
-    void RemoveSocket(int s);
-    void RemoveCloseSocket(int s);
+    int AddSocket(int s, long eventflags) override;
+    void RemoveCloseSocket(int s) override;
 
-    void Poll();
+    void Poll() override;
     void HandleEvents(int s, uint32_t event);
     std::array<epoll_event, MAX_EVENT_NUMBER> event_array_{};
 

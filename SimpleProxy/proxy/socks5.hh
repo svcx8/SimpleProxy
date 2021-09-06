@@ -5,9 +5,10 @@
 
 class SocketPair {
 public:
-    int this_side_;
-    int other_side_;
-    int authentified_;
+    int poller_index = 0;
+    int this_side_ = 0;
+    int other_side_ = 0;
+    int authentified_ = 0;
 };
 
 class Socks5Header {

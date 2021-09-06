@@ -36,11 +36,10 @@ int EPoller::AddSocket(int s, long eventflags) {
 
 void EPoller::RemoveCloseSocket(int s) {
     CloseSocket(s);
+    // if (epoll_ctl(epoller_inst_, EPOLL_CTL_DEL, s, nullptr)) {
+    //     LOG("[RemoveCloseSocket]: %s", strerror(errno)); // return Bad file descriptor
+    // }
 };
-
-void EPoller::RemoveSocket(int s) {
-    epoll_ctl(epoller_inst_, EPOLL_CTL_DEL, s, nullptr);
-}
 
 void EPoller::Poll() {
     int CompEventNum = epoll_wait(epoller_inst_, &event_array_[0], MAX_EVENT_NUMBER, -1);
@@ -51,12 +50,10 @@ void EPoller::Poll() {
 
 void EPoller::HandleEvents(int s, uint32_t event) {
     if (event & EPOLLIN) {
-        // LOG("\t\t[#%d HandleEvents] OnReadable: %d", Id, s);
         op_->OnReadable(s);
     }
 
     else if (event & EPOLLOUT) {
-        // LOG("\t\t[#%d HandleEvents] OnWritable: %d", Id, s);
         op_->OnWritable(s);
     }
 }

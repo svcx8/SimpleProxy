@@ -9,7 +9,7 @@ void Server::Start(int Port) {
     sockaddr_in ServerAddr = {};
     ServerAddr.sin_family = AF_INET;
     // INADDR_LOOPBACK = 127.0.0.1; INADDR_ANY = 0.0.0.0;
-    ServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    ServerAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     ServerAddr.sin_port = htons(Port);
 
     if (bind(server_socket_, (sockaddr*)&ServerAddr, sizeof(ServerAddr)) == SOCKET_ERROR) {

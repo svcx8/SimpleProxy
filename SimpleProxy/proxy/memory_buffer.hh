@@ -2,6 +2,7 @@
 #define MEMORY_BUFFER_HEADER
 
 #include <map>
+#include <mutex>
 
 class MemoryBuffer {
 public:
@@ -20,6 +21,7 @@ public:
 
 private:
     static std::map<int, MemoryBuffer*> buffer_array_;
+    static std::mutex pool_mutex_;
 };
 
 #endif // memory_buffer.hh

@@ -34,22 +34,28 @@ int main() {
         constexpr int port = 2333;
         Server::GetInstance().Start(port);
 
-        IPoller* server_poller = new EPoller(new ProxyServer(), 1);
+        IPoller* server_poller = new EPoller(new ProxyServer(), 99);
         constexpr long flags = EPOLLIN;
 
         server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
 
-        IPoller* conn_poller = new EPoller(new ProxyConn(), 3);
-        EPoller::reserved_list_.push_back(conn_poller);
+        IPoller* client_poller_1 = new EPoller(new ProxyClient(), 0);
+        EPoller::reserved_list_.push_back(client_poller_1);
 
-        IPoller* client_poller = new EPoller(new ProxyClient(), 4);
-        EPoller::reserved_list_.push_back(client_poller);
+        IPoller* client_poller_2 = new EPoller(new ProxyClient(), 1);
+        EPoller::reserved_list_.push_back(client_poller_2);
+
+        IPoller* conn_poller_1 = new EPoller(new ProxyConn(), 2);
+        EPoller::reserved_list_.push_back(conn_poller_1);
+
+        IPoller* conn_poller_2 = new EPoller(new ProxyConn(), 3);
+        EPoller::reserved_list_.push_back(conn_poller_2);
 
         std::thread([&] {
-            LOG("[++] ConnPoller Start");
+            LOG("[++] ConnPoller1 Start");
             while (true) {
                 try {
-                    conn_poller->Poll();
+                    conn_poller_1->Poll();
                 } catch (BaseException& ex) {
                     LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
@@ -57,10 +63,32 @@ int main() {
         }).detach();
 
         std::thread([&] {
-            LOG("[++] ClientPoller Start");
+            LOG("[++] ConnPoller2 Start");
             while (true) {
                 try {
-                    client_poller->Poll();
+                    conn_poller_2->Poll();
+                } catch (BaseException& ex) {
+                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                }
+            }
+        }).detach();
+
+        std::thread([&] {
+            LOG("[++] ClientPoller1 Start");
+            while (true) {
+                try {
+                    client_poller_1->Poll();
+                } catch (BaseException& ex) {
+                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                }
+            }
+        }).detach();
+
+        std::thread([&] {
+            LOG("[++] ClientPoller2 Start");
+            while (true) {
+                try {
+                    client_poller_2->Poll();
                 } catch (BaseException& ex) {
                     LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }

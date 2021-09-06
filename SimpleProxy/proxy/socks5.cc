@@ -1,5 +1,7 @@
 #include "socks5.hh"
 
+#include <cstring>
+
 #include "dns_resolver.hh"
 #include <misc/configuration.hh>
 
@@ -32,7 +34,6 @@ Socks5Command::Socks5Command(unsigned char* buffer) {
     if (address_type_ == 0x3) {
         int domain_len = buffer[index++];
         std::string domain((char*)&buffer[index], 0, domain_len);
-        LOG("domain: %s", domain.c_str());
 
         index += domain_len;
         address_type_ = 0x01;
@@ -55,13 +56,15 @@ Socks5Command::Socks5Command(unsigned char* buffer) {
 
     else if (address_type_ == 0x04) {
         address_struct_.sockaddr_in6.sin6_family = AF_INET6;
-        std::memcpy(address_struct_.sockaddr_in6.sin6_addr.in6_u.u6_addr8, &buffer[index], 16);
+        std::memcpy(address_struct_.sockaddr_in6.sin6_addr.s6_addr, &buffer[index], 16);
         index += 16;
         address_struct_.sockaddr_in6.sin6_port = *(short int*)&buffer[index];
     }
 
     else {
-        throw MyEx("wtf ATYP");
+        version_ = -1;
+        LOG("index: %d | wtf ATYP: %02X", index, address_type_);
+        LOG("%02X %02X %02X %02X %02X %02X", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
     }
 }
 
