@@ -57,7 +57,7 @@ int main() {
                 try {
                     conn_poller_1->Poll();
                 } catch (BaseException& ex) {
-                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
             }
         }).detach();
@@ -68,7 +68,7 @@ int main() {
                 try {
                     conn_poller_2->Poll();
                 } catch (BaseException& ex) {
-                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
             }
         }).detach();
@@ -79,7 +79,7 @@ int main() {
                 try {
                     client_poller_1->Poll();
                 } catch (BaseException& ex) {
-                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
             }
         }).detach();
@@ -90,7 +90,7 @@ int main() {
                 try {
                     client_poller_2->Poll();
                 } catch (BaseException& ex) {
-                    LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
                 }
             }
         }).detach();
@@ -100,10 +100,10 @@ int main() {
             try {
                 server_poller->Poll();
             } catch (BaseException& ex) {
-                LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+                ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
             }
         }
     } catch (BaseException& ex) {
-        LOG("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+        ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
     }
 }

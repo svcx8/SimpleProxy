@@ -24,7 +24,7 @@ void ProxySocket::RemovePair(int s) {
 
 SocketPair* ProxySocket::GetPointer(int s) {
     std::unique_lock<std::mutex> lock(list_mutex_);
-    for (auto& item : socket_list_) {
+    for (const auto& item : socket_list_) {
         if (item->this_side_ == s || item->other_side_ == s)
             return item.get();
     }

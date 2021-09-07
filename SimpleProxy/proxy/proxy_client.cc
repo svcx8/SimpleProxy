@@ -10,6 +10,14 @@
     ClientSocket->send(); // Send to server.
 */
 
+void ClosePair(SocketPair* ptr) {
+    LOG("[ProxyClient] OnCloseable: %d - %d", ptr->this_side_, ptr->other_side_);
+    MemoryBuffer::RemovePool(ptr);
+    ProxySocket::GetInstance().RemovePair(ptr->this_side_);
+    CloseSocket(ptr->this_side_);
+    CloseSocket(ptr->other_side_);
+}
+
 void ProxyClient::OnReadable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
     // Receiving from Server.
@@ -28,15 +36,11 @@ void ProxyClient::OnReadable(SOCKET s) {
 
 #if defined __unix__
     else if (recv_len == 0) {
-        LOG("[ProxyClient] OnCloseable: %d - %d", ptr->this_side_, ptr->other_side_);
-        MemoryBuffer::RemovePool(ptr->this_side_);
-        MemoryBuffer::RemovePool(ptr->other_side_);
-        CloseSocket(ptr->this_side_);
-        CloseSocket(ptr->other_side_);
-        ProxySocket::GetInstance().RemovePair(ptr->this_side_);
+        ClosePair(ptr);
     }
 #endif
     else if (recv_len <= 0) {
+        ClosePair(ptr);
         throw NetEx();
     }
 }
@@ -47,6 +51,7 @@ void ProxyClient::OnWritable(SOCKET s) {
     auto pair = ProxySocket::GetInstance().GetPointer(s);
     if (pair->authentified_ < 3) {
         if (send(pair->this_side_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
+            ClosePair(pair);
             throw NetEx();
         }
         pair->authentified_++;

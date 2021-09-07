@@ -108,11 +108,10 @@ void ProxyConn::OnReadable(SOCKET s) {
 #if defined __unix__
             else if (recv_len == 0) {
                 LOG("[ProxyConn] OnCloseable: %d", ptr->this_side_);
-                MemoryBuffer::RemovePool(ptr->this_side_);
-                MemoryBuffer::RemovePool(ptr->other_side_);
+                MemoryBuffer::RemovePool(ptr);
+                ProxySocket::GetInstance().RemovePair(ptr->this_side_);
                 CloseSocket(ptr->this_side_);
                 CloseSocket(ptr->other_side_);
-                ProxySocket::GetInstance().RemovePair(ptr->this_side_);
             }
 #endif
             else if (recv_len <= 0) {

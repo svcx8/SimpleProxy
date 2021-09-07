@@ -15,11 +15,16 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
     return buffer_array_[s];
 }
 
-void MemoryBuffer::RemovePool(int s) {
-    LOG("[--] Remove Pool: %04d", s);
-    if (buffer_array_[s]) {
-        memory_pool.Revert(buffer_array_[s]);
-        buffer_array_[s] = nullptr;
+void MemoryBuffer::RemovePool(SocketPair* pair) {
+    std::unique_lock<std::mutex> lock(pool_mutex_);
+    if (buffer_array_[pair->this_side_]) {
+        memory_pool.Revert(buffer_array_[pair->this_side_]);
+        buffer_array_[pair->this_side_] = nullptr;
+    }
+
+    if (buffer_array_[pair->other_side_]) {
+        memory_pool.Revert(buffer_array_[pair->other_side_]);
+        buffer_array_[pair->other_side_] = nullptr;
     }
 }
 

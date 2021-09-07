@@ -1,6 +1,8 @@
 #ifndef MEMORY_BUFFER_HEADER
 #define MEMORY_BUFFER_HEADER
 
+#include <proxy/proxy_socket.hh>
+
 #include <map>
 #include <mutex>
 
@@ -17,7 +19,7 @@ public:
     }
     int Transfer(int s);
     static MemoryBuffer* GetPool(int s);
-    static void RemovePool(int s);
+    static void RemovePool(SocketPair* pair);
 
 private:
     static std::map<int, MemoryBuffer*> buffer_array_;

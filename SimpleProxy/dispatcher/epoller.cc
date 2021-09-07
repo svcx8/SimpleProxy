@@ -42,7 +42,7 @@ void EPoller::RemoveCloseSocket(int s) {
 };
 
 void EPoller::Poll() {
-    int CompEventNum = epoll_wait(epoller_inst_, &event_array_[0], MAX_EVENT_NUMBER, -1);
+    int CompEventNum = epoll_wait(epoller_inst_, &event_array_[0], MAX_EVENT_NUMBER, 30000);
     for (int i = 0; i < CompEventNum; ++i) {
         HandleEvents(event_array_[i].data.fd, event_array_[i].events);
     }
