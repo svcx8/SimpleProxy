@@ -17,6 +17,7 @@ using namespace rapidjson;
 
 // curl -H "accept: application/dns-json" "https://doh.pub/dns-query?type=A&name=example.com"
 uint32_t DNSResolver::ResolveDoH(std::string& domain) {
+    LOG("[DoH] domain: %s", domain.c_str());
     Response r = Get(Url{ Configuration::GetInstance().doh_server_ },
                      Header{ { "accept", "application/json" } },
                      Parameters{ { "type", "A" }, { "name", domain } },

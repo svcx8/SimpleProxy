@@ -88,6 +88,9 @@ void ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 
 void ProxyConn::OnReadable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
+    if (!ptr)
+        return;
+
     if (ptr->authentified_ < 3) {
         CheckSocks5Handshake(ptr);
     }

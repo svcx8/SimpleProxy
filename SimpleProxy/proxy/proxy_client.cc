@@ -20,6 +20,8 @@ void ClosePair(SocketPair* ptr) {
 
 void ProxyClient::OnReadable(SOCKET s) {
     auto ptr = ProxySocket::GetInstance().GetPointer(s);
+    if (!ptr)
+        return;
     // Receiving from Server.
     auto buffer_pool = MemoryBuffer::GetPool(s);
     int recv_len = recv(s, (char*)buffer_pool->buffer_, MemoryBuffer::buffer_size_, 0);
