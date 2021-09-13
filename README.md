@@ -3,7 +3,7 @@ A simple `socks5` protocol proxy server.
 
 ## Supported Features
 - Authentication: none
-- Protocal: TCP
+- Protocol: TCP
 - Address Type: IPv4, IPv6, Domain
 - Supports DoH (DNS over HTTPS)
 
