@@ -99,8 +99,10 @@ Percentage of the requests served within a certain time (ms)
     98%				6947
     99%				7659
    100%				9951
+```
 
-bench_v2.log
+```
+# bench_v2.log
 Running 10000 test @ 127.0.0.1:80 by 500 connections
 Request as following format:
 
