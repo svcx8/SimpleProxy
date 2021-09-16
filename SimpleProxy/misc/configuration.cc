@@ -44,6 +44,10 @@ bool LoadJsonFromFile(Document& doc, const char* FilePath) {
 Configuration::Configuration() : enable_doh_(false) {
     Document doc;
     if (LoadJsonFromFile(doc, "proxy.json")) {
+        if (auto itr = doc.FindMember("Port"); itr != doc.MemberEnd() && itr->value.IsInt()) {
+            port_ = itr->value.GetInt();
+        }
+
         if (auto itr = doc.FindMember("EnableDoH"); itr != doc.MemberEnd() && itr->value.IsBool()) {
             enable_doh_ = itr->value.GetBool();
         }

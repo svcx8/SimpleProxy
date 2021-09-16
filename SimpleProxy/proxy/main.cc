@@ -3,9 +3,8 @@
 #include "proxy_server.hh"
 
 #include <dispatcher/epoller.hh>
+#include <misc/configuration.hh>
 #include <server/server.hh>
-
-#include <proxy/dns_resolver.hh>
 
 #include <thread>
 
@@ -31,8 +30,7 @@ int main() {
         // ptr = (unsigned char*)&result;
         // LOG("%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
 
-        constexpr int port = 2333;
-        Server::GetInstance().Start(port);
+        Server::GetInstance().Start(Configuration::GetInstance().port_);
 
         IPoller* server_poller = new EPoller(new ProxyServer(), 99);
         constexpr long flags = EPOLLIN;

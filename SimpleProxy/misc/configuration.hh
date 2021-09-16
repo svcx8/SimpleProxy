@@ -8,7 +8,8 @@
 class Configuration : public Singleton<Configuration> {
 public:
     Configuration();
-    bool enable_doh_;
+    int port_ = 2333;
+    bool enable_doh_ = false;
     std::string doh_server_{ "https://doh.pub/dns-query" };
 };
 
