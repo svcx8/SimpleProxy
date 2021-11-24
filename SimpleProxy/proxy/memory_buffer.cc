@@ -1,5 +1,6 @@
 #include "memory_buffer.hh"
 
+#include "misc/logger.hh"
 #include "misc/net.hh"
 #include "misc/simple_pool.hh"
 
@@ -16,7 +17,6 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
 }
 
 void MemoryBuffer::RemovePool(SocketPair* pair) {
-    std::unique_lock<std::mutex> lock(pool_mutex_);
     if (buffer_array_[pair->this_side_]) {
         memory_pool.Revert(buffer_array_[pair->this_side_]);
         buffer_array_[pair->this_side_] = nullptr;
@@ -30,12 +30,11 @@ void MemoryBuffer::RemovePool(SocketPair* pair) {
 
 absl::Status MemoryBuffer::Transfer(int s) {
     int send_len = send(s, buffer_, Usage(), 0);
-    if (send_len <= 0) {
+    if (send_len == SOCKET_ERROR) {
         if (errno != EAGAIN) {
             return absl::InternalError(strerror(errno));
         }
-    } else {
-        end_ -= send_len;
     }
+    end_ -= send_len;
     return absl::OkStatus();
 }

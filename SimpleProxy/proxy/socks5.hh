@@ -25,18 +25,23 @@ public:
 class Socks5Command {
 public:
     typedef union {
-        struct sockaddr sockaddr;
-        struct sockaddr_in sockaddr_in;
-        struct sockaddr_in6 sockaddr_in6;
+        struct sockaddr sockaddr_;
+        struct sockaddr_in sockaddr_in_;
+        struct sockaddr_in6 sockaddr_in6_;
     } ngx_sockaddr_t;
     unsigned char version_;
     unsigned char command_;
     unsigned char reserved_;
     unsigned char address_type_;
-    ngx_sockaddr_t address_struct_;
+    sockaddr* sock_addr_;
+    size_t sock_addr_len_;
 
     unsigned char* head_buffer_;
     Socks5Command(unsigned char* buffer);
+    ~Socks5Command() {
+        if (sock_addr_)
+            delete sock_addr_;
+    }
     absl::Status Check();
 
     static const char reply_success[];

@@ -12,10 +12,24 @@
 using namespace cpr;
 using namespace rapidjson;
 
-#define GetObjectA GetObject
+absl::StatusOr<addrinfo*> DNSResolver::Resolve(const char* domain) {
+    LOG("[Native] domain: %s", domain);
+    struct addrinfo hints;
+    struct addrinfo* result;
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = 0;
+
+    if (getaddrinfo(domain, nullptr, &hints, &result) != 0) {
+        return absl::InternalError("Cannot resolve this domain.");
+    }
+    return result;
+}
 
 // curl -H "accept: application/dns-json" "https://doh.pub/dns-query?type=A&name=example.com"
-absl::StatusOr<uint32_t> DNSResolver::ResolveDoH(std::string& domain) {
+absl::StatusOr<sockaddr_in*> DNSResolver::ResolveDoH(std::string& domain) {
     LOG("[DoH] domain: %s", domain.c_str());
     Response r = Get(Url{ Configuration::GetInstance().doh_server_ },
                      Header{ { "accept", "application/json" } },
@@ -38,9 +52,9 @@ absl::StatusOr<uint32_t> DNSResolver::ResolveDoH(std::string& domain) {
                     if (type->value.GetInt() == 1) {
                         if (auto data = record_object.FindMember("data"); data != record_object.MemberEnd() && data->value.IsString()) {
                             const char* ip = data->value.GetString();
-                            sockaddr_in sa;
-                            inet_pton(AF_INET, ip, &(sa.sin_addr));
-                            return sa.sin_addr.s_addr;
+                            sockaddr_in* sa = new sockaddr_in();
+                            inet_pton(AF_INET, ip, &sa->sin_addr);
+                            return sa;
                         }
                     }
                 }

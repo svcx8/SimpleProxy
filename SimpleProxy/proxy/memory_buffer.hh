@@ -1,6 +1,7 @@
 #ifndef MEMORY_BUFFER_HEADER
 #define MEMORY_BUFFER_HEADER
 
+#include "misc/logger.hh"
 #include "proxy_socket.hh"
 
 #include <map>
@@ -12,7 +13,6 @@ public:
     unsigned char buffer_[buffer_size_];
     int start_ = 0;
     int end_ = 0;
-    int max_recv_len_ = 0;
 
     int Usage() {
         return end_ - start_;

@@ -18,10 +18,20 @@ void ProxySocket::AddPair(std::unique_ptr<SocketPair>&& pair) {
 
 void ProxySocket::RemovePair(int s) {
     std::unique_lock<std::mutex> lock(list_mutex_);
-    socket_list_.erase(std::remove_if(socket_list_.begin(), socket_list_.end(), [&](std::unique_ptr<SocketPair> const& pair) {
-                           return pair->this_side_ == s;
-                       }),
-                       socket_list_.end());
+
+    auto itor = std::find_if(socket_list_.begin(), socket_list_.end(),
+                             [&](std::unique_ptr<SocketPair> const& pair) {
+                                 return pair->this_side_ == s;
+                             });
+
+    if (itor != socket_list_.end()) {
+        close(itor->get()->this_side_);
+        close(itor->get()->other_side_);
+        MemoryBuffer::RemovePool(itor->get());
+        socket_list_.erase(itor);
+    }
+
+    LOG("After remove: %d size: %d", s, socket_list_.size());
 }
 
 SocketPair* ProxySocket::GetPointer(int s) {
@@ -30,7 +40,7 @@ SocketPair* ProxySocket::GetPointer(int s) {
         if (item->this_side_ == s || item->other_side_ == s)
             return item.get();
     }
-    ERROR("[%s] The socket %d pair not found.", __FUNCTION__, s);
+    ERROR("[ProxySocket] The socket %d pair not found.", s);
     return nullptr;
 }
 
@@ -74,12 +84,4 @@ IPoller* ProxySocket::GetClientPoller(SocketPair* pair) {
     else {
         return EPoller::reserved_list_[pair->poller_index - 1];
     }
-}
-
-void ProxySocket::ClosePair(SocketPair* pair) {
-    LOG("[ProxySocket] ClosePair: %d - %d", pair->this_side_, pair->other_side_);
-    MemoryBuffer::RemovePool(pair);
-    ProxySocket::GetInstance().RemovePair(pair->this_side_);
-    close(pair->this_side_);
-    close(pair->other_side_);
 }

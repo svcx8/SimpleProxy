@@ -22,11 +22,11 @@ absl::Status ProxyServer::OnReadable(int s) {
 
     auto result = ProxySocket::GetConnPoller(ptr)->AddSocket(new_socket, flags);
     if (!result.ok()) {
-        LOG("[EchoServer] Failed to add event");
+        LOG("[ProxyServer] Failed to add event");
         close(new_socket);
         return result;
     }
-    LOG("[ProxyServer] OnReadable: %d", new_socket);
+    LOG("\n[ProxyServer] OnReadable: %d", new_socket);
 
     return absl::OkStatus();
 }

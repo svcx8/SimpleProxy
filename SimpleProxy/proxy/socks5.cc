@@ -41,32 +41,44 @@ absl::Status Socks5Command::Check() {
 
         index += domain_len;
         address_type_ = 0x01;
-        address_struct_.sockaddr_in.sin_family = AF_INET;
-        address_struct_.sockaddr_in.sin_port = *(short int*)&head_buffer_[index];
 
         if (Configuration::GetInstance().enable_doh_) {
             auto result = DNSResolver::ResolveDoH(domain);
             if (!result.ok()) {
                 return result.status();
             }
-            address_struct_.sockaddr_in.sin_addr.s_addr = *result;
+            sock_addr_ = reinterpret_cast<sockaddr*>(*result);
+            sock_addr_len_ = sizeof(sockaddr_in);
+
         } else {
-            address_struct_.sockaddr_in.sin_addr.s_addr = DNSResolver::Resolve(domain.c_str());
+            auto result = DNSResolver::Resolve(domain.c_str());
+            if (!result.ok()) {
+                return result.status();
+            }
+            sock_addr_ = (*result)->ai_addr;
+            sock_addr_len_ = (*result)->ai_addrlen;
         }
+        reinterpret_cast<sockaddr_in*>(sock_addr_)->sin_port = *(short int*)&head_buffer_[index];
     }
 
     else if (address_type_ == 0x01) {
-        address_struct_.sockaddr_in.sin_family = AF_INET;
-        address_struct_.sockaddr_in.sin_addr.s_addr = *(int32_t*)&head_buffer_[index];
+        sockaddr_in* addr_info = new sockaddr_in();
+        addr_info->sin_family = AF_INET;
+        addr_info->sin_addr.s_addr = *(int32_t*)&head_buffer_[index];
         index += 4;
-        address_struct_.sockaddr_in.sin_port = *(short int*)&head_buffer_[index];
+        addr_info->sin_port = *(short int*)&head_buffer_[index];
+        sock_addr_ = reinterpret_cast<sockaddr*>(addr_info);
+        sock_addr_len_ = sizeof(addr_info);
     }
 
     else if (address_type_ == 0x04) {
-        address_struct_.sockaddr_in6.sin6_family = AF_INET6;
-        std::memcpy(address_struct_.sockaddr_in6.sin6_addr.s6_addr, &head_buffer_[index], 16);
+        sockaddr_in6* addr_info6 = new sockaddr_in6();
+        addr_info6->sin6_family = AF_INET6;
+        std::memcpy(addr_info6->sin6_addr.s6_addr, &head_buffer_[index], 16);
         index += 16;
-        address_struct_.sockaddr_in6.sin6_port = *(short int*)&head_buffer_[index];
+        addr_info6->sin6_port = *(short int*)&head_buffer_[index];
+        sock_addr_ = reinterpret_cast<sockaddr*>(addr_info6);
+        sock_addr_len_ = sizeof(addr_info6);
     }
 
     else {

@@ -18,7 +18,6 @@ public:
 
     static IPoller* GetConnPoller(SocketPair* pair);
     static IPoller* GetClientPoller(SocketPair* pair);
-    static void ClosePair(SocketPair* pair);
 
 private:
     std::vector<std::unique_ptr<SocketPair>> socket_list_;
