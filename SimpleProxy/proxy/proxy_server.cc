@@ -1,28 +1,32 @@
 #include "proxy_server.hh"
 
+#include "dispatcher/epoller.hh"
+#include "misc/logger.hh"
 #include "proxy_socket.hh"
-#include <dispatcher/epoller.hh>
 
-#if defined __unix__
+#include <absl/memory/memory.h>
+
 constexpr long flags = EPOLLIN;
-#endif
 
-void ProxyServer::OnReadable(SOCKET s) {
-    SOCKET NewSocket = accept(s, nullptr, nullptr);
-    if (NewSocket == SOCKET_ERROR) {
-        throw NetEx();
+absl::Status ProxyServer::OnReadable(int s) {
+    int new_socket = accept(s, nullptr, nullptr);
+    if (new_socket == SOCKET_ERROR) {
+        return absl::InternalError(strerror(errno));
     }
 
-    auto pair = std::make_unique<SocketPair>();
-    pair->this_side_ = NewSocket;
+    auto pair = absl::make_unique<SocketPair>();
+    pair->this_side_ = new_socket;
     pair->authentified_ = 0;
     auto ptr = pair.get();
     ProxySocket::GetInstance().AddPair(std::move(pair));
 
-    if (ProxySocket::GetConnPoller(ptr)->AddSocket(NewSocket, flags) == -1) {
+    auto result = ProxySocket::GetConnPoller(ptr)->AddSocket(new_socket, flags);
+    if (!result.ok()) {
         LOG("[EchoServer] Failed to add event");
-        CloseSocket(NewSocket);
-        throw NetEx();
+        close(new_socket);
+        return result;
     }
-    LOG("[ProxyServer] OnReadable: %d", NewSocket);
+    LOG("[ProxyServer] OnReadable: %d", new_socket);
+
+    return absl::OkStatus();
 }

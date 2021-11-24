@@ -1,15 +1,13 @@
 #ifndef MITMCLIENT_HEADER
 #define MITMCLIENT_HEADER
 
-#include <dispatcher/ibusiness_event.hh>
-#include <dispatcher/ipoller.hh>
+#include "dispatcher/ibusiness_event.hh"
+#include "dispatcher/ipoller.hh"
 
 class ProxyClient : public IBusinessEvent {
 public:
-    void OnAcceptable(SOCKET) override{};
-    void OnCloseable(SOCKET) override{};
-    void OnReadable(SOCKET) override;
-    void OnWritable(SOCKET) override;
+    absl::Status OnReadable(int) override;
+    absl::Status OnWritable(int) override;
 };
 
 #endif // ProxyClient.hh

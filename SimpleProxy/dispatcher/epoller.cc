@@ -1,6 +1,7 @@
 #ifdef __unix__
 
 #include "epoller.hh"
+#include "misc/logger.hh"
 
 #include <fcntl.h>
 
@@ -18,7 +19,7 @@ int EPoller::SetNonBlocking(int fd) {
     return fcntl(fd, F_SETFL, new_opt);
 }
 
-int EPoller::AddSocket(int s, long eventflags) {
+absl::Status EPoller::AddSocket(int s, long eventflags) {
     epoll_event _event;
     _event.data.fd = s;
     _event.events = eventflags;
@@ -26,16 +27,17 @@ int EPoller::AddSocket(int s, long eventflags) {
     int res = epoll_ctl(epoller_inst_, EPOLL_CTL_ADD, s, &_event);
     if (res == -1) {
         if (errno == EEXIST) {
-            return epoll_ctl(epoller_inst_, EPOLL_CTL_MOD, s, &_event);
+            // I'm not sure I need to check the return value here.
+            epoll_ctl(epoller_inst_, EPOLL_CTL_MOD, s, &_event);
         } else {
-            throw NetEx();
+            return absl::InternalError(strerror(errno));
         }
     }
-    return res;
+    return absl::OkStatus();
 }
 
 void EPoller::RemoveCloseSocket(int s) {
-    CloseSocket(s);
+    close(s);
     // if (epoll_ctl(epoller_inst_, EPOLL_CTL_DEL, s, nullptr)) {
     //     LOG("[RemoveCloseSocket]: %s", strerror(errno)); // return Bad file descriptor
     // }
@@ -50,11 +52,17 @@ void EPoller::Poll() {
 
 void EPoller::HandleEvents(int s, uint32_t event) {
     if (event & EPOLLIN) {
-        op_->OnReadable(s);
+        auto result = op_->OnReadable(s);
+        if (!result.ok()) {
+            ERROR("[EPoller::HandleEvents::OnReadable] %.*s", result.message().size(), result.message().data());
+        }
     }
 
     else if (event & EPOLLOUT) {
-        op_->OnWritable(s);
+        auto result = op_->OnWritable(s);
+        if (!result.ok()) {
+            ERROR("[EPoller::HandleEvents::OnWritable] %.*s", result.message().size(), result.message().data());
+        }
     }
 }
 

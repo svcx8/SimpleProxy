@@ -1,9 +1,11 @@
 #include "proxy_socket.hh"
 
+#include "dispatcher/epoller.hh"
+#include "memory_buffer.hh"
+#include "misc/logger.hh"
+
 #include <algorithm>
 #include <mutex>
-
-#include <dispatcher/epoller.hh>
 
 std::mutex ProxySocket::list_mutex_;
 std::mutex ProxySocket::get_poller_mutex_;
@@ -28,6 +30,7 @@ SocketPair* ProxySocket::GetPointer(int s) {
         if (item->this_side_ == s || item->other_side_ == s)
             return item.get();
     }
+    ERROR("[%s] The socket %d pair not found.", __FUNCTION__, s);
     return nullptr;
 }
 
@@ -71,4 +74,12 @@ IPoller* ProxySocket::GetClientPoller(SocketPair* pair) {
     else {
         return EPoller::reserved_list_[pair->poller_index - 1];
     }
+}
+
+void ProxySocket::ClosePair(SocketPair* pair) {
+    LOG("[ProxySocket] ClosePair: %d - %d", pair->this_side_, pair->other_side_);
+    MemoryBuffer::RemovePool(pair);
+    ProxySocket::GetInstance().RemovePair(pair->this_side_);
+    close(pair->this_side_);
+    close(pair->other_side_);
 }

@@ -1,7 +1,9 @@
 #ifndef SOCKS5_HEADER
 #define SOCKS5_HEADER
 
-#include <misc/net.hh>
+#include "misc/net.hh"
+
+#include <absl/status/status.h>
 
 class SocketPair {
 public:
@@ -32,8 +34,11 @@ public:
     unsigned char reserved_;
     unsigned char address_type_;
     ngx_sockaddr_t address_struct_;
+
+    unsigned char* head_buffer_;
     Socks5Command(unsigned char* buffer);
-    bool Check();
+    absl::Status Check();
+
     static const char reply_success[];
     static const char reply_failure[];
 };

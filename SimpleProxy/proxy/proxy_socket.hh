@@ -3,8 +3,8 @@
 
 #include "socks5.hh"
 
-#include <dispatcher/ipoller.hh>
-#include <misc/singleton.hh>
+#include "dispatcher/ipoller.hh"
+#include "misc/singleton.hh"
 
 #include <memory>
 #include <mutex>
@@ -15,8 +15,10 @@ public:
     void AddPair(std::unique_ptr<SocketPair>&&);
     void RemovePair(int);
     SocketPair* GetPointer(int);
+
     static IPoller* GetConnPoller(SocketPair* pair);
     static IPoller* GetClientPoller(SocketPair* pair);
+    static void ClosePair(SocketPair* pair);
 
 private:
     std::vector<std::unique_ptr<SocketPair>> socket_list_;

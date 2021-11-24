@@ -5,7 +5,7 @@ cmake_minimum_required (VERSION 3.8)
 
 # 文件写出位置
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}\\BinOutput\\${CMAKE_BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z -fno-rtti -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fno-rtti -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS")
 
 if(MSVC)
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
@@ -21,10 +21,13 @@ message(STATUS "OpenSSL: ${OPENSSL_INCLUDE_DIR}")
 find_library(z-lib z)
 message(STATUS "ZLIB: ${z-lib}")
 
+find_package(absl REQUIRED)
+
 # 添加头文件
 include_directories("${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/third/cpr/include"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/third/rapidjson/include"
+    ${ABSL_INCLUDE_DIR}
     ${OPENSSL_INCLUDE_DIR}
     ${CURL_INCLUDE_DIR}
 )
@@ -69,7 +72,7 @@ if(WIN32)
     target_link_libraries(Proxy ${ws2-lib})
 elseif(ANDROID)
     message(STATUS "Platform: ${ANDROID_PLATFORM}")
-    target_link_libraries(Proxy ${CURL_LIBRARY} ${z-lib} ${OPENSSL_LIBRARIES})
+    target_link_libraries(Proxy ${CURL_LIBRARY} ${z-lib} absl::status absl::statusor ${OPENSSL_LIBRARIES})
 elseif(UNIX)
     message(STATUS "Platform: Linux")
     find_package(Threads REQUIRED)

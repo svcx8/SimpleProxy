@@ -2,29 +2,27 @@
 
 #include "echo_conn.hh"
 
-#include <dispatcher/epoller.hh>
+#include "dispatcher/epoller.hh"
 
-#if defined WIN32
-constexpr long flags = FD_READ | FD_CLOSE | FD_WRITE;
-#endif
-
-#if defined __unix__
 constexpr long flags = EPOLLIN;
-#endif
 
-void EchoServer::OnReadable(SOCKET Socket) {
-    SOCKET NewSocket = accept(Socket, nullptr, nullptr);
-    if (NewSocket == SOCKET_ERROR) {
-        throw NetEx();
+absl::Status EchoServer::OnReadable(int Socket) {
+    int new_socket = accept(Socket, nullptr, nullptr);
+    if (new_socket == SOCKET_ERROR) {
+        return absl::InternalError(strerror(errno));
     }
-    LOG("NewSocket: %d", NewSocket);
+    LOG("new_socket: %d", new_socket);
 
     for (auto& P : EPoller::reserved_list_) {
-        if (P->AddSocket(NewSocket, flags) == -1) {
+        auto result = P->AddSocket(new_socket, flags);
+        if (!result.ok()) {
             LOG("[EchoServer] Failed to add event");
-            CloseSocket(NewSocket);
-            throw NetEx();
+            close(new_socket);
+            return absl::InternalError(strerror(errno));
         }
+        // Only try to add to the first poller.
         break;
     }
+
+    return absl::OkStatus();
 }

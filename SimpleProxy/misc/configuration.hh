@@ -1,7 +1,7 @@
 #ifndef CONFIGURATION_HEADER
 #define CONFIGURATION_HEADER
 
-#include <misc/singleton.hh>
+#include "singleton.hh"
 
 #include <string>
 

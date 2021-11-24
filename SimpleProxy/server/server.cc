@@ -1,9 +1,11 @@
 #include "server.hh"
 
-void Server::Start(int Port) {
+#include "misc/logger.hh"
+
+absl::Status Server::Start(int Port) {
     server_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (server_socket_ == SOCKET_ERROR) {
-        throw NetEx();
+        return absl::InternalError(strerror(errno));
     }
     LOG("[Server::Start] Socket: %d Port: %d", (int)server_socket_, Port);
     sockaddr_in ServerAddr = {};
@@ -13,12 +15,14 @@ void Server::Start(int Port) {
     ServerAddr.sin_port = htons(Port);
 
     if (bind(server_socket_, (sockaddr*)&ServerAddr, sizeof(ServerAddr)) == SOCKET_ERROR) {
-        throw NetEx();
+        return absl::InternalError(strerror(errno));
     }
     if (listen(server_socket_, 5) == SOCKET_ERROR) {
-        throw NetEx();
+        return absl::InternalError(strerror(errno));
     }
+
+    return absl::OkStatus();
     // No longer need server socket
     // LOG("Close Server Socket");
-    // CloseSocket(server_socket_);
+    // close(server_socket_);
 }

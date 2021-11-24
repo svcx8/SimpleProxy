@@ -1,7 +1,7 @@
 #ifndef MEMORY_BUFFER_HEADER
 #define MEMORY_BUFFER_HEADER
 
-#include <proxy/proxy_socket.hh>
+#include "proxy_socket.hh"
 
 #include <map>
 #include <mutex>
@@ -17,7 +17,7 @@ public:
     int Usage() {
         return end_ - start_;
     }
-    int Transfer(int s);
+    absl::Status Transfer(int s);
     static MemoryBuffer* GetPool(int s);
     static void RemovePool(SocketPair* pair);
 

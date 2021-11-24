@@ -1,8 +1,7 @@
 #include "dns_resolver.hh"
 
-#include <misc/configuration.hh>
-#include <misc/logger.hh>
-#include <misc/myexception.hh>
+#include "misc/configuration.hh"
+#include "misc/logger.hh"
 
 #include <arpa/inet.h>
 
@@ -16,19 +15,19 @@ using namespace rapidjson;
 #define GetObjectA GetObject
 
 // curl -H "accept: application/dns-json" "https://doh.pub/dns-query?type=A&name=example.com"
-uint32_t DNSResolver::ResolveDoH(std::string& domain) {
+absl::StatusOr<uint32_t> DNSResolver::ResolveDoH(std::string& domain) {
     LOG("[DoH] domain: %s", domain.c_str());
     Response r = Get(Url{ Configuration::GetInstance().doh_server_ },
                      Header{ { "accept", "application/json" } },
                      Parameters{ { "type", "A" }, { "name", domain } },
                      VerifySsl(false));
     if (r.error.code != ErrorCode::OK) {
-        LOG("error message: %s", r.error.message.c_str());
+        return absl::InternalError(r.error.message);
     }
     Document doc;
     if (doc.Parse(r.text.c_str()).HasParseError()) {
         LOG("Parse error: %s %zu", GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
-        throw MyEx("Parse error");
+        return absl::InternalError("Json parse error.");
     }
     if (auto itr = doc.FindMember("Answer"); itr != doc.MemberEnd() && itr->value.IsArray()) {
         const auto& answer = itr->value.GetArray();
@@ -48,5 +47,6 @@ uint32_t DNSResolver::ResolveDoH(std::string& domain) {
             }
         }
     }
-    return 0;
+
+    return absl::InternalError("Cannot resolve this domain.");
 }

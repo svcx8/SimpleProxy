@@ -2,9 +2,10 @@
 #include "proxy_conn.hh"
 #include "proxy_server.hh"
 
-#include <dispatcher/epoller.hh>
-#include <misc/configuration.hh>
-#include <server/server.hh>
+#include "dispatcher/epoller.hh"
+#include "misc/configuration.hh"
+#include "misc/logger.hh"
+#include "server/server.hh"
 
 #include <thread>
 
@@ -18,90 +19,62 @@
 */
 
 int main() {
-    try {
-        // // DoH testing
-        // std::string domain("baidu.com");
-        // auto result = DNSResolver::ResolveDoH(domain);
-        // unsigned char* ptr = (unsigned char*)&result;
-        // LOG("%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
+    auto result = Server::GetInstance().Start(Configuration::GetInstance().port_);
+    if (!result.ok()) {
+        ERROR("%.*s", result.message().size(), result.message().data());
+        return -1;
+    }
+    IPoller* server_poller = new EPoller(new ProxyServer(), 99);
+    constexpr long flags = EPOLLIN;
 
-        // // DNS testing
-        // result = DNSResolver::Resolve("cn.bing.com");
-        // ptr = (unsigned char*)&result;
-        // LOG("%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
+    result = server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
+    if (!result.ok()) {
+        ERROR("%.*s", result.message().size(), result.message().data());
+        return -1;
+    }
 
-        Server::GetInstance().Start(Configuration::GetInstance().port_);
+    IPoller* client_poller_1 = new EPoller(new ProxyClient(), 0);
+    EPoller::reserved_list_.push_back(client_poller_1);
 
-        IPoller* server_poller = new EPoller(new ProxyServer(), 99);
-        constexpr long flags = EPOLLIN;
+    IPoller* client_poller_2 = new EPoller(new ProxyClient(), 1);
+    EPoller::reserved_list_.push_back(client_poller_2);
 
-        server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
+    IPoller* conn_poller_1 = new EPoller(new ProxyConn(), 2);
+    EPoller::reserved_list_.push_back(conn_poller_1);
 
-        IPoller* client_poller_1 = new EPoller(new ProxyClient(), 0);
-        EPoller::reserved_list_.push_back(client_poller_1);
+    IPoller* conn_poller_2 = new EPoller(new ProxyConn(), 3);
+    EPoller::reserved_list_.push_back(conn_poller_2);
 
-        IPoller* client_poller_2 = new EPoller(new ProxyClient(), 1);
-        EPoller::reserved_list_.push_back(client_poller_2);
-
-        IPoller* conn_poller_1 = new EPoller(new ProxyConn(), 2);
-        EPoller::reserved_list_.push_back(conn_poller_1);
-
-        IPoller* conn_poller_2 = new EPoller(new ProxyConn(), 3);
-        EPoller::reserved_list_.push_back(conn_poller_2);
-
-        std::thread([&] {
-            LOG("[++] ConnPoller1 Start");
-            while (true) {
-                try {
-                    conn_poller_1->Poll();
-                } catch (BaseException& ex) {
-                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
-                }
-            }
-        }).detach();
-
-        std::thread([&] {
-            LOG("[++] ConnPoller2 Start");
-            while (true) {
-                try {
-                    conn_poller_2->Poll();
-                } catch (BaseException& ex) {
-                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
-                }
-            }
-        }).detach();
-
-        std::thread([&] {
-            LOG("[++] ClientPoller1 Start");
-            while (true) {
-                try {
-                    client_poller_1->Poll();
-                } catch (BaseException& ex) {
-                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
-                }
-            }
-        }).detach();
-
-        std::thread([&] {
-            LOG("[++] ClientPoller2 Start");
-            while (true) {
-                try {
-                    client_poller_2->Poll();
-                } catch (BaseException& ex) {
-                    ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
-                }
-            }
-        }).detach();
-
-        LOG("[++] ServerPoller Start");
+    std::thread([&] {
+        LOG("[++] ConnPoller1 Start");
         while (true) {
-            try {
-                server_poller->Poll();
-            } catch (BaseException& ex) {
-                ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
-            }
+            conn_poller_1->Poll();
         }
-    } catch (BaseException& ex) {
-        ERROR("Exception: %s\n[%s] [%s] Line: #%d", ex.result_, ex.file_, ex.function_, ex.line_);
+    }).detach();
+
+    std::thread([&] {
+        LOG("[++] ConnPoller2 Start");
+        while (true) {
+            conn_poller_2->Poll();
+        }
+    }).detach();
+
+    std::thread([&] {
+        LOG("[++] ClientPoller1 Start");
+        while (true) {
+            client_poller_1->Poll();
+        }
+    }).detach();
+
+    std::thread([&] {
+        LOG("[++] ClientPoller2 Start");
+        while (true) {
+            client_poller_2->Poll();
+        }
+    }).detach();
+
+    LOG("[++] ServerPoller Start");
+    while (true) {
+        server_poller->Poll();
     }
 }

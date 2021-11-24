@@ -3,8 +3,8 @@
 
 #ifdef __unix__
 
-#include <dispatcher/ipoller.hh>
-#include <proxy/socks5.hh>
+#include "ipoller.hh"
+#include "proxy/socks5.hh"
 
 #include <sys/epoll.h>
 
@@ -19,7 +19,7 @@ public:
     EPoller(IBusinessEvent* business, int _id);
     ~EPoller(){};
 
-    int AddSocket(int s, long eventflags) override;
+    absl::Status AddSocket(int s, long eventflags) override;
     void RemoveCloseSocket(int s) override;
 
     void Poll() override;

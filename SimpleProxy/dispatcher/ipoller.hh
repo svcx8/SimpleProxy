@@ -7,7 +7,7 @@ class IPoller {
 public:
     IPoller(){};
     virtual ~IPoller(){};
-    virtual int AddSocket(int s, long eventflags) = 0;
+    virtual absl::Status AddSocket(int s, long eventflags) = 0;
     virtual void RemoveCloseSocket(int s) = 0;
     // while (IsRunning) {
     virtual void Poll() = 0;

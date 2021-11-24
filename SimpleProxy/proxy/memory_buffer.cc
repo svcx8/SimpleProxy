@@ -1,7 +1,7 @@
 #include "memory_buffer.hh"
 
-#include <misc/net.hh>
-#include <misc/simple_pool.hh>
+#include "misc/net.hh"
+#include "misc/simple_pool.hh"
 
 std::map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
 static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
@@ -28,14 +28,14 @@ void MemoryBuffer::RemovePool(SocketPair* pair) {
     }
 }
 
-int MemoryBuffer::Transfer(int s) {
+absl::Status MemoryBuffer::Transfer(int s) {
     int send_len = send(s, buffer_, Usage(), 0);
     if (send_len <= 0) {
-        if (errno == EAGAIN) {
-            return send_len;
+        if (errno != EAGAIN) {
+            return absl::InternalError(strerror(errno));
         }
-        throw NetEx();
+    } else {
+        end_ -= send_len;
     }
-    end_ -= send_len;
-    return send_len;
+    return absl::OkStatus();
 }
