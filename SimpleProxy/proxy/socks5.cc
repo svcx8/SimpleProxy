@@ -68,7 +68,7 @@ absl::Status Socks5Command::Check() {
         index += 4;
         addr_info->sin_port = *(short int*)&head_buffer_[index];
         sock_addr_ = reinterpret_cast<sockaddr*>(addr_info);
-        sock_addr_len_ = sizeof(addr_info);
+        sock_addr_len_ = sizeof(sockaddr_in);
     }
 
     else if (address_type_ == 0x04) {
@@ -78,7 +78,7 @@ absl::Status Socks5Command::Check() {
         index += 16;
         addr_info6->sin6_port = *(short int*)&head_buffer_[index];
         sock_addr_ = reinterpret_cast<sockaddr*>(addr_info6);
-        sock_addr_len_ = sizeof(addr_info6);
+        sock_addr_len_ = sizeof(sockaddr_in6);
     }
 
     else {
