@@ -51,23 +51,22 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
             return result;
         }
 
-        if (command.address_type_ == 0x1) {
 #ifndef NDEBUG
+        if (command.address_type_ == 0x1) {
             char buffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_addr, buffer, sizeof(buffer));
             printf("\taddress4: %s:%d\n", buffer, htons(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_port));
-#endif
             pair->other_side_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
         }
 
         else if (command.address_type_ == 0x4) {
-#ifndef NDEBUG
             char buffer[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6*>(command.sock_addr_)->sin6_addr, buffer, sizeof(buffer));
             printf("\taddress6: %s:%d\n", buffer, htons(reinterpret_cast<sockaddr_in6*>(command.sock_addr_)->sin6_port));
-#endif
-            pair->other_side_ = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
         }
+#endif
+
+        pair->other_side_ = socket(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_family, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 
         if (pair->other_side_ == SOCKET_ERROR) {
             ErrorHandler(pair);

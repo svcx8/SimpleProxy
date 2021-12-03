@@ -52,13 +52,13 @@ IPoller* ProxySocket::GetConnPoller(SocketPair* pair) {
     if (pair->poller_index == 0) {
         IPoller* ptr = nullptr;
         pair->poller_index = last_poller_index_;
-        if (last_poller_index_ == 1) {
-            ptr = EPoller::reserved_list_[2];
-            ++last_poller_index_;
-        } else {
-            ptr = EPoller::reserved_list_[3];
-            last_poller_index_ = 1;
-        }
+        LOG("[ProxySocket::GetConnPoller] last_poller_index_: %d", last_poller_index_);
+
+        ptr = EPoller::reserved_list_[last_poller_index_ + 1];
+        last_poller_index_ = last_poller_index_ % 2 + 1;
+        /*
+            last_poller_index_ = 1, 2, 1, 2, 1, 2......
+        */
         return ptr;
     }
 
@@ -71,13 +71,13 @@ IPoller* ProxySocket::GetClientPoller(SocketPair* pair) {
     if (pair->poller_index == 0) {
         IPoller* ptr = nullptr;
         pair->poller_index = last_poller_index_;
-        if (last_poller_index_ == 1) {
-            ptr = EPoller::reserved_list_[0];
-            ++last_poller_index_;
-        } else {
-            ptr = EPoller::reserved_list_[1];
-            last_poller_index_ = 1;
-        }
+        LOG("[ProxySocket::GetClientPoller] last_poller_index_: %d", last_poller_index_);
+
+        ptr = EPoller::reserved_list_[last_poller_index_ - 1];
+        last_poller_index_ = last_poller_index_ % 2 + 1;
+        /*
+            last_poller_index_ = 1, 2, 1, 2, 1, 2......
+        */
         return ptr;
     }
 
