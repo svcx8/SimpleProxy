@@ -21,7 +21,7 @@
 int main() {
     auto result = Server::GetInstance().Start(Configuration::GetInstance().port_);
     if (!result.ok()) {
-        ERROR("%.*s", result.message().size(), result.message().data());
+        ERROR("%.*s", (int)result.message().size(), result.message().data());
         return -1;
     }
     IPoller* server_poller = new EPoller(new ProxyServer(), 99);
@@ -29,7 +29,7 @@ int main() {
 
     result = server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
     if (!result.ok()) {
-        ERROR("%.*s", result.message().size(), result.message().data());
+        ERROR("%.*s", (int)result.message().size(), result.message().data());
         return -1;
     }
 

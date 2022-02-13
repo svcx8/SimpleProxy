@@ -1,7 +1,7 @@
 #ifndef EPOLLER_HEADER
 #define EPOLLER_HEADER
 
-#ifdef __unix__
+#ifdef __linux__
 
 #include "ipoller.hh"
 #include "proxy/socks5.hh"
@@ -33,6 +33,6 @@ private:
     int epoller_inst_ = 0;
 };
 
-#endif // #ifdef __unix__
+#endif // #ifdef __linux__
 
 #endif // epoller.hh

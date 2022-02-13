@@ -1,7 +1,5 @@
 #include "configuration.hh"
 
-#include "misc/logger.hh"
-
 #include <cstdio>
 
 #include <rapidjson/document.h>
@@ -10,8 +8,14 @@
 #include <rapidjson/writer.h>
 using namespace rapidjson;
 
-bool LoadJsonFromFile(Document& doc, const char* FilePath) {
+#include <absl/status/statusor.h>
+using absl::StatusOr;
+
+#include "misc/logger.hh"
+
+StatusOr<Document> LoadJsonFromFile(const char* FilePath) {
     std::FILE* fp = std::fopen(FilePath, "r");
+    Document doc;
     if (fp) {
         std::fseek(fp, 0, SEEK_END);
         size_t len = std::ftell(fp);
@@ -19,31 +23,31 @@ bool LoadJsonFromFile(Document& doc, const char* FilePath) {
         buf[len] = 0;
         if (buf == nullptr) {
             std::fclose(fp);
-            LOG("Could not allocate memory");
-            return false;
+            return absl::InternalError("Could not allocate memory");
         }
         std::rewind(fp);
         size_t readb = std::fread(buf, 1, len, fp);
         std::fclose(fp);
         if (readb != len) {
             std::free(buf);
-            LOG("Could not read the data");
-            return false;
+            return absl::InternalError("Could not read the data");
         }
         if (doc.Parse(buf).HasParseError()) {
-            LOG("Parse error: %s %s %zu", FilePath, GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
-            return false;
+            LOG("[%s] %s #%d\nFile: %s %s %zu", __FUNCTION__, __FILE__, __LINE__,
+                FilePath, GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
+            return absl::InternalError("Parse error");
         }
     } else {
-        LOG("Cannot load %s. %s", FilePath, std::strerror(errno));
-        return false;
+        LOG("[%s] %s #%d\nCannot load: %s. %s", __FUNCTION__, __FILE__, __LINE__, FilePath, std::strerror(errno));
+        return absl::NotFoundError("Cannot load.");
     }
-    return true;
+    return doc;
 }
 
 Configuration::Configuration() : enable_doh_(false) {
-    Document doc;
-    if (LoadJsonFromFile(doc, "proxy.json")) {
+    auto result = LoadJsonFromFile("proxy.json");
+    if (result.ok()) {
+        Document& doc = *result;
         if (auto itr = doc.FindMember("Port"); itr != doc.MemberEnd() && itr->value.IsInt()) {
             port_ = itr->value.GetInt();
         }

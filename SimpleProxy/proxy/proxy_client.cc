@@ -10,20 +10,21 @@
     ClientSocket->send(); // Send to server.
 */
 
+// Receiving from Server. | Download
 absl::Status ProxyClient::OnReadable(int s) {
     auto pair = ProxySocket::GetInstance().GetPointer(s);
     if (!pair)
         return absl::FailedPreconditionError("[" LINE_FILE "] Socket not found in ProxySocket::socket_list_.");
-
-    // Receiving from Server.
+    
     auto buffer_pool = MemoryBuffer::GetPool(s);
     if (buffer_pool) {
+        // Limit the speed of download from server, the speed of client will be limited too.
         int recv_len = recv(s, (char*)buffer_pool->buffer_, MemoryBuffer::buffer_size_, 0);
         if (recv_len > 0) {
             buffer_pool->end_ += recv_len;
             auto result = buffer_pool->Transfer(pair->this_side_);
             if (result.ok()) {
-                result = poller_->AddSocket(s, EPOLLIN | EPOLLOUT);
+                result.Update(poller_->AddSocket(s, EPOLLIN | EPOLLOUT));
             }
             return result;
         }
@@ -41,7 +42,7 @@ absl::Status ProxyClient::OnReadable(int s) {
     }
 }
 
-// connect to remote server success.
+// Sending to Server. | Upload
 absl::Status ProxyClient::OnWritable(int s) {
     auto pair = ProxySocket::GetInstance().GetPointer(s);
     if (pair->authentified_ < 3) {

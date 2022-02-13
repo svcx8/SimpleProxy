@@ -17,7 +17,7 @@ absl::Status ProxyServer::OnReadable(int s) {
     auto pair = absl::make_unique<SocketPair>();
     pair->this_side_ = new_socket;
     pair->authentified_ = 0;
-    auto ptr = pair.get();
+    SocketPair* ptr = pair.get();
     ProxySocket::GetInstance().AddPair(std::move(pair));
 
     auto result = ProxySocket::GetConnPoller(ptr)->AddSocket(new_socket, flags);

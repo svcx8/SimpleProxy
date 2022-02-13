@@ -1,9 +1,9 @@
 #ifndef SOCKS5_HEADER
 #define SOCKS5_HEADER
 
-#include "misc/net.hh"
-
 #include <absl/status/status.h>
+
+#include "misc/net.hh"
 
 class SocketPair {
 public:

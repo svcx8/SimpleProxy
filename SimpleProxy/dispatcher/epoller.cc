@@ -1,4 +1,4 @@
-#ifdef __unix__
+#ifdef __linux__
 
 #include "epoller.hh"
 #include "misc/logger.hh"
@@ -54,16 +54,16 @@ void EPoller::HandleEvents(int s, uint32_t event) {
     if (event & EPOLLIN) {
         auto result = op_->OnReadable(s);
         if (!result.ok()) {
-            ERROR("[EPoller::HandleEvents::OnReadable] %.*s", result.message().size(), result.message().data());
+            ERROR("[EPoller::HandleEvents::OnReadable] %.*s", (int)result.message().size(), result.message().data());
         }
     }
 
     else if (event & EPOLLOUT) {
         auto result = op_->OnWritable(s);
         if (!result.ok()) {
-            ERROR("[EPoller::HandleEvents::OnWritable] %.*s", result.message().size(), result.message().data());
+            ERROR("[EPoller::HandleEvents::OnWritable] %.*s", (int)result.message().size(), result.message().data());
         }
     }
 }
 
-#endif // #ifdef __unix__
+#endif // #ifdef __linux__
