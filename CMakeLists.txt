@@ -7,4 +7,5 @@ project ("SimpleProxy")
 
 # 包含子项目。
 add_subdirectory ("SimpleProxy/echo")
+add_subdirectory ("SimpleProxy/dispatcher")
 add_subdirectory ("SimpleProxy/proxy")

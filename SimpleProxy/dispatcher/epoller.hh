@@ -3,13 +3,12 @@
 
 #ifdef __linux__
 
-#include "ipoller.hh"
-#include "proxy/socks5.hh"
-
 #include <sys/epoll.h>
 
 #include <array>
 #include <vector>
+
+#include "ipoller.hh"
 
 constexpr int MAX_EVENT_NUMBER = 64;
 
@@ -20,7 +19,8 @@ public:
     ~EPoller(){};
 
     absl::Status AddSocket(int s, long eventflags) override;
-    void RemoveCloseSocket(int s) override;
+    absl::Status ModSocket(int s, long eventflags) override;
+    absl::Status RemoveSocket(int s) override;
 
     void Poll() override;
     void HandleEvents(int s, uint32_t event);

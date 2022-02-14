@@ -2,14 +2,14 @@
 
 #include <cstdio>
 
+#include <absl/status/statusor.h>
+using absl::StatusOr;
+
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 using namespace rapidjson;
-
-#include <absl/status/statusor.h>
-using absl::StatusOr;
 
 #include "misc/logger.hh"
 
@@ -58,6 +58,18 @@ Configuration::Configuration() : enable_doh_(false) {
 
         if (auto itr = doc.FindMember("DoHServer"); itr != doc.MemberEnd() && itr->value.IsString()) {
             doh_server_ = itr->value.GetString();
+        }
+
+        if (auto itr = doc.FindMember("BucketCapacity"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
+            capacity_ = itr->value.GetUint64();
+        }
+
+        if (auto itr = doc.FindMember("BucketFillTick"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
+            fill_tick_ = itr->value.GetUint64();
+        }
+
+        if (auto itr = doc.FindMember("BucketRate"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
+            serving_ = itr->value.GetUint64();
         }
     }
 }

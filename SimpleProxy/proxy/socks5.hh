@@ -1,8 +1,11 @@
 #ifndef SOCKS5_HEADER
 #define SOCKS5_HEADER
 
+#include <memory>
+
 #include <absl/status/status.h>
 
+#include "limiter/token_bucket.hh"
 #include "misc/net.hh"
 
 class SocketPair {
@@ -11,6 +14,7 @@ public:
     int this_side_ = 0;
     int other_side_ = 0;
     int authentified_ = 0;
+    std::unique_ptr<TokenBucket> token_bucket_;
 };
 
 class Socks5Header {

@@ -1,11 +1,12 @@
 #ifndef MEMORY_BUFFER_HEADER
 #define MEMORY_BUFFER_HEADER
 
-#include "misc/logger.hh"
-#include "proxy_socket.hh"
-
 #include <map>
 #include <mutex>
+
+#include "misc/logger.hh"
+#include "proxy_socket.hh"
+#include <absl/status/statusor.h>
 
 class MemoryBuffer {
 public:
@@ -17,7 +18,8 @@ public:
     int Usage() {
         return end_ - start_;
     }
-    absl::Status Transfer(int s);
+    absl::Status Receive(int s);
+    absl::Status Send(int s);
     static MemoryBuffer* GetPool(int s);
     static void RemovePool(SocketPair* pair);
 

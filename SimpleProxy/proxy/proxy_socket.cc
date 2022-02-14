@@ -21,7 +21,7 @@ void ProxySocket::RemovePair(int s) {
 
     auto itor = std::find_if(socket_list_.begin(), socket_list_.end(),
                              [&](std::unique_ptr<SocketPair> const& pair) {
-                                 return pair->this_side_ == s;
+                                 return pair->this_side_ == s || pair->other_side_ == s;
                              });
 
     if (itor != socket_list_.end()) {
