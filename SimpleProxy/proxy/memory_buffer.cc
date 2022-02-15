@@ -18,14 +18,18 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
 }
 
 void MemoryBuffer::RemovePool(SocketPair* pair) {
-    if (buffer_array_[pair->this_side_]) {
-        memory_pool.Revert(buffer_array_[pair->this_side_]);
-        buffer_array_[pair->this_side_] = nullptr;
+    MemoryBuffer*& pool_1 = buffer_array_[pair->this_side_];
+    if (pool_1) {
+        pool_1->start_ = pool_1->end_ = 0;
+        memory_pool.Revert(pool_1);
+        pool_1 = nullptr;
     }
 
-    if (buffer_array_[pair->other_side_]) {
-        memory_pool.Revert(buffer_array_[pair->other_side_]);
-        buffer_array_[pair->other_side_] = nullptr;
+    MemoryBuffer*& pool_2 = buffer_array_[pair->other_side_];
+    if (pool_2) {
+        pool_2->start_ = pool_2->end_ = 0;
+        memory_pool.Revert(pool_2);
+        pool_2 = nullptr;
     }
 }
 
@@ -48,9 +52,9 @@ absl::Status MemoryBuffer::Receive(int s) {
 
     else {
         if (errno == EAGAIN) {
-            LOG("[%d] [MemoryBuffer] [%d] Failed to recv data, EAGAIN", s, Usage());
             return absl::ResourceExhaustedError(strerror(errno));
         } else {
+            ProxySocket::GetInstance().RemovePair(s);
             return absl::InternalError(strerror(errno));
         }
     }
@@ -74,9 +78,9 @@ absl::Status MemoryBuffer::Send(int s) {
 
     else if (send_len < 0) {
         if (errno == EAGAIN) {
-            LOG("[%d] [MemoryBuffer] [%d] Failed to send data, EAGAIN", s, Usage());
             return absl::ResourceExhaustedError(strerror(errno));
         } else {
+            ProxySocket::GetInstance().RemovePair(s);
             return absl::InternalError(strerror(errno));
         }
     }

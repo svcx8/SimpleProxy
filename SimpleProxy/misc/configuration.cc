@@ -60,16 +60,16 @@ Configuration::Configuration() : enable_doh_(false) {
             doh_server_ = itr->value.GetString();
         }
 
-        if (auto itr = doc.FindMember("BucketCapacity"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
-            capacity_ = itr->value.GetUint64();
-        }
+        // if (auto itr = doc.FindMember("BuckeFillPeriod"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
+        //     fill_period_ = itr->value.GetUint64();
+        // }
 
-        if (auto itr = doc.FindMember("BucketFillTick"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
-            fill_tick_ = itr->value.GetUint64();
-        }
+        // if (auto itr = doc.FindMember("BuckeFillTick"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
+        //     fill_tick_ = itr->value.GetUint64();
+        // }
 
-        if (auto itr = doc.FindMember("BucketRate"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
-            serving_ = itr->value.GetUint64();
-        }
+        // if (auto itr = doc.FindMember("BucketCapacity"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
+        //     capacity_ = itr->value.GetUint64();
+        // }
     }
 }

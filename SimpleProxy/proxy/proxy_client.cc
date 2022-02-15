@@ -1,7 +1,10 @@
 #include "proxy_client.hh"
 
+#include <thread>
+
 #include "dispatcher/epoller.hh"
 #include "memory_buffer.hh"
+#include "misc/configuration.hh"
 #include "misc/logger.hh"
 #include "proxy_socket.hh"
 
@@ -44,11 +47,10 @@
         Socket Receive Buffer           Is Empty            Low Level
         Socket Receive Buffer           Not Empty           High Level(Triggered)
 
-
     EPOLLOUT Event
 
-        Socket Send Buffer        Is Full              Low Level
-        Socket Send Buffer        Not Full             High Level(Triggered)
+        Socket Send Buffer              Is Full              Low Level
+        Socket Send Buffer              Not Full             High Level(Triggered)
 */
 
 // Receiving from Server. | Download | EPOLLIN
@@ -59,16 +61,24 @@ absl::Status ProxyClient::OnReadable(int s) {
 
     if (auto buffer_pool = MemoryBuffer::GetPool(s)) {
         auto result = buffer_pool->Receive(s);
-        if (result.ok() || result.code() == absl::StatusCode::kResourceExhausted) {
+
+        if (result.ok()) {
+            // auto wait_time = pair->token_bucket_.get()->Consume(*recv_res);
+            // if (wait_time.count() > 0) {
+            //     std::thread(&TokenBucket::GenerateToken, pair->token_bucket_.get(), poller_, pair->other_side_, wait_time).detach();
+            //     return absl::OkStatus();
+            // }
             result.Update(buffer_pool->Send(pair->this_side_));
-            if (result.code() == absl::StatusCode::kResourceExhausted) {
-                // The buffer of client cannot receive more data, add to poller.
-                // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
-                result.Update(ProxySocket::GetConnPoller(pair)->ModSocket(pair->this_side_, EPOLLOUT));
-                result.Update(poller_->RemoveSocket(pair->other_side_));
-                return result;
-            }
         }
+
+        if (result.code() == absl::StatusCode::kResourceExhausted) {
+            result = absl::OkStatus();
+            // The buffer of client cannot receive more data, add to poller.
+            // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
+            result.Update(ProxySocket::GetConnPoller(pair)->ModSocket(pair->this_side_, EPOLLOUT));
+            result.Update(poller_->RemoveSocket(pair->other_side_));
+        }
+
         return result;
     } else {
         return absl::FailedPreconditionError("[" LINE_FILE "] GetPool return null");
@@ -79,17 +89,43 @@ absl::Status ProxyClient::OnReadable(int s) {
 absl::Status ProxyClient::OnWritable(int s) {
     auto pair = ProxySocket::GetInstance().GetPointer(s);
     if (auto buffer_pool = MemoryBuffer::GetPool(pair->this_side_)) {
-        auto result = buffer_pool->Send(pair->other_side_);
-        if (!result.ok()) {
+        if (pair->authentified_ == 2) {
+            int socket_error = 0;
+            socklen_t socket_error_len = sizeof(socket_error);
+            if (getsockopt(pair->other_side_, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len) < 0) {
+                return absl::InternalError(strerror(errno));
+            }
+
+            if (socket_error != 0) {
+                send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
+                ProxySocket::GetInstance().RemovePair(pair->this_side_);
+                return absl::InternalError(strerror(errno));
+            }
+
+            auto result = poller_->ModSocket(pair->other_side_, EPOLLIN);
+
+            if (send(pair->this_side_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
+                ProxySocket::GetInstance().RemovePair(pair->this_side_);
+                return absl::InternalError(strerror(errno));
+            }
+
+            // pair->token_bucket_ = std::make_unique<TokenBucket>(Configuration::GetInstance().fill_period_,
+            //                                                     Configuration::GetInstance().fill_tick_,
+            //                                                     Configuration::GetInstance().capacity_);
+            pair->authentified_++;
+            return result;
+        } else {
+            auto result = buffer_pool->Send(pair->other_side_);
+            if (!result.ok()) {
+                return result;
+            }
+            // Remove EPOLLOUT event after the buffer is empty.
+            if (buffer_pool->Usage() == 0) {
+                result.Update(poller_->ModSocket(pair->this_side_, EPOLLIN));
+                result.Update(ProxySocket::GetConnPoller(pair)->AddSocket(pair->other_side_, EPOLLIN));
+            }
             return result;
         }
-        // Remove EPOLLOUT event after the buffer is empty.
-        if (buffer_pool->Usage() == 0) {
-            LOG("[%d] [ProxyClient::OnWritable] Remove EPOLLOUT", s);
-            result.Update(poller_->ModSocket(pair->this_side_, EPOLLIN));
-            result.Update(ProxySocket::GetConnPoller(pair)->AddSocket(pair->other_side_, EPOLLIN));
-        }
-        return result;
     } else {
         return absl::FailedPreconditionError("[" LINE_FILE "] GetPool return null");
     }

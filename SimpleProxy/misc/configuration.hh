@@ -13,9 +13,9 @@ public:
     bool enable_doh_ = false;
     std::string doh_server_{ "https://doh.pub/dns-query" };
 
-    uint64_t capacity_ = 0;
-    uint64_t fill_tick_ = 0;
-    uint64_t serving_ = 0;
+    // uint64_t fill_period_ = 0;
+    // uint64_t fill_tick_ = 0;
+    // uint64_t capacity_ = 0;
 
 protected:
     Configuration();

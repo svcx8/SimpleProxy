@@ -30,8 +30,6 @@ void ProxySocket::RemovePair(int s) {
         MemoryBuffer::RemovePool(itor->get());
         socket_list_.erase(itor);
     }
-
-    LOG("After remove: %d size: %zu", s, socket_list_.size());
 }
 
 SocketPair* ProxySocket::GetPointer(int s) {

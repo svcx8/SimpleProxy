@@ -14,7 +14,7 @@ public:
     int this_side_ = 0;
     int other_side_ = 0;
     int authentified_ = 0;
-    std::unique_ptr<TokenBucket> token_bucket_;
+    // std::unique_ptr<TokenBucket> token_bucket_;
 };
 
 class Socks5Header {
