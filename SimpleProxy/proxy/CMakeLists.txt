@@ -5,7 +5,7 @@ cmake_minimum_required (VERSION 3.8)
 
 # 文件写出位置
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}\\BinOutput\\${CMAKE_BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-rtti -fno-exceptions -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -msse")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-rtti -fno-exceptions -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS")
 
 # 添加依赖
 set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}/${CMAKE_LIBRARY_ARCHITECTURE}")
@@ -52,6 +52,6 @@ if(ANDROID)
 elseif(UNIX)
     message(STATUS "Platform: Linux")
     find_package(Threads REQUIRED)
-    target_link_libraries(Proxy Threads::Threads ${OPENSSL_LIBRARIES} ${CURL_LIBRARY} ${z-lib})
+    target_link_libraries(Proxy Dispatcher Threads::Threads ${OPENSSL_LIBRARIES} ${CURL_LIBRARY} ${z-lib} absl::status absl::statusor)
 endif()
 # TODO: 如有需要，请添加测试并安装目标。

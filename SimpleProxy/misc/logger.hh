@@ -2,13 +2,12 @@
 #define LOGGER_HEADER
 
 #include <cstdio>
-#include <iostream>
-using std::cout;
-using std::endl;
 
-#define DEBUG2(x, y) "Line " #y " of File " x
-#define DEBUG1(x, y) DEBUG2(x, y)
-#define LINE_FILE DEBUG1(__FILE__, __LINE__)
+#define STRINGIZE2(x) #x
+#define STRINGIZE(x) STRINGIZE2(x)
+#define LINE_STRING STRINGIZE(__LINE__)
+
+#define LINE_FILE "Line " LINE_STRING " of File " __FILE__
 
 #ifdef NDEBUG
 #define LOG(str, ...)

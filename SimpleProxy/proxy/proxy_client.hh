@@ -6,8 +6,8 @@
 
 class ProxyClient : public IBusinessEvent {
 public:
-    absl::Status OnReadable(int) override;
-    absl::Status OnWritable(int) override;
+    void OnReadable(int) override;
+    void OnWritable(int) override;
 };
 
 #endif // ProxyClient.hh

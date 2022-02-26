@@ -4,9 +4,10 @@
 #include <map>
 #include <mutex>
 
-#include "misc/logger.hh"
-#include "proxy_socket.hh"
 #include <absl/status/statusor.h>
+
+#include "misc/logger.hh"
+#include "socket_pair.hh"
 
 class MemoryBuffer {
 public:

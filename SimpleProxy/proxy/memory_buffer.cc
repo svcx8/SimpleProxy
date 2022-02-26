@@ -10,8 +10,8 @@ static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
 std::mutex MemoryBuffer::pool_mutex_;
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
+    std::unique_lock<std::mutex> lock(pool_mutex_);
     if (buffer_array_[s] == nullptr) {
-        std::unique_lock<std::mutex> lock(pool_mutex_);
         buffer_array_[s] = static_cast<MemoryBuffer*>(memory_pool.Allocate());
     }
     return buffer_array_[s];
@@ -37,24 +37,22 @@ absl::Status MemoryBuffer::Receive(int s) {
     int recv_len = recv(s, &buffer_[end_], MemoryBuffer::buffer_size_ - end_, 0);
     if (recv_len > 0) {
         end_ += recv_len;
-        if (end_ == MemoryBuffer::buffer_size_) {
-            return absl::ResourceExhaustedError("Buffer full.");
-        }
     }
 
     else if (recv_len == 0) {
         if (end_ == MemoryBuffer::buffer_size_) {
+            LOG("[" LINE_FILE "] [%d] buffer full, %s", s, strerror(errno));
             return absl::ResourceExhaustedError("Buffer full.");
         }
-        ProxySocket::GetInstance().RemovePair(s);
         return absl::CancelledError("The socket was closed.");
     }
 
     else {
         if (errno == EAGAIN) {
+            LOG("[" LINE_FILE "] [%d] EAGAIN: %s", s, strerror(errno));
             return absl::ResourceExhaustedError(strerror(errno));
         } else {
-            ProxySocket::GetInstance().RemovePair(s);
+            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
             return absl::InternalError(strerror(errno));
         }
     }
@@ -72,15 +70,15 @@ absl::Status MemoryBuffer::Send(int s) {
     }
 
     else if (send_len == 0) {
-        ProxySocket::GetInstance().RemovePair(s);
         return absl::CancelledError("The socket was closed.");
     }
 
     else if (send_len < 0) {
         if (errno == EAGAIN) {
+            LOG("[" LINE_FILE "] [%d] EAGAIN: %s", s, strerror(errno));
             return absl::ResourceExhaustedError(strerror(errno));
         } else {
-            ProxySocket::GetInstance().RemovePair(s);
+            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
             return absl::InternalError(strerror(errno));
         }
     }

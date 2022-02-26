@@ -1,6 +1,8 @@
 #ifndef IPOLLER_HEADER
 #define IPOLLER_HEADER
 
+#include <absl/status/status.h>
+
 #include "ibusiness_event.hh"
 
 class IPoller {

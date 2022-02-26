@@ -1,13 +1,14 @@
-#include "proxy_client.hh"
-#include "proxy_conn.hh"
-#include "proxy_server.hh"
+#include <thread>
+
+#include "signal.h"
 
 #include "dispatcher/epoller.hh"
 #include "misc/configuration.hh"
 #include "misc/logger.hh"
+#include "proxy_client.hh"
+#include "proxy_conn.hh"
+#include "proxy_server.hh"
 #include "server/server.hh"
-
-#include <thread>
 
 /*
     There has 2 type of sockets:
@@ -18,13 +19,20 @@
     2: Recv From Server will Send To Client
 */
 
+void signal_callback_handler(int signum) {
+    // Just ignore the SIGPIPE signal.
+    // (gdb) handle SIGPIPE nostop noprint pass
+}
+
 int main() {
+    signal(SIGPIPE, signal_callback_handler);
+
     auto result = Server::GetInstance().Start(Configuration::GetInstance().port_);
     if (!result.ok()) {
         ERROR("%.*s", (int)result.message().size(), result.message().data());
         return -1;
     }
-    IPoller* server_poller = new EPoller(new ProxyServer(), 99);
+    EPoller* server_poller = new EPoller(new ProxyServer(), 99);
     constexpr long flags = EPOLLIN;
 
     result = server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
@@ -46,34 +54,34 @@ int main() {
     EPoller::reserved_list_.push_back(conn_poller_2);
 
     std::thread([&] {
-        LOG("[++] ConnPoller1 Start");
+        // conn_poller_1->logger_->info("[++] ConnPoller1 Start");
         while (true) {
             conn_poller_1->Poll();
         }
     }).detach();
 
     std::thread([&] {
-        LOG("[++] ConnPoller2 Start");
+        // conn_poller_2->logger_->info("[++] ConnPoller2 Start");
         while (true) {
             conn_poller_2->Poll();
         }
     }).detach();
 
     std::thread([&] {
-        LOG("[++] ClientPoller1 Start");
+        // client_poller_1->logger_->info("[++] ClientPoller1 Start");
         while (true) {
             client_poller_1->Poll();
         }
     }).detach();
 
     std::thread([&] {
-        LOG("[++] ClientPoller2 Start");
+        // client_poller_2->logger_->info("[++] ClientPoller2 Start");
         while (true) {
             client_poller_2->Poll();
         }
     }).detach();
 
-    LOG("[++] ServerPoller Start");
+    // server_poller->logger_->info("[++] ServerPoller Start");
     while (true) {
         server_poller->Poll();
     }

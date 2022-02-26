@@ -1,32 +1,33 @@
 #include "proxy_server.hh"
 
-#include "dispatcher/epoller.hh"
-#include "misc/logger.hh"
-#include "proxy_socket.hh"
-
 #include <absl/memory/memory.h>
 
-constexpr long flags = EPOLLIN;
+#include "dispatcher/epoller.hh"
+#include "misc/logger.hh"
+#include "misc/net.hh"
+#include "socket_pair.hh"
 
-absl::Status ProxyServer::OnReadable(int s) {
-    int new_socket = accept(s, nullptr, nullptr);
+void ProxyServer::OnReadable(int s) {
+    sockaddr_in client;
+    socklen_t len = sizeof(client);
+    int new_socket = accept(s, (sockaddr*)&client, &len);
     if (new_socket == SOCKET_ERROR) {
-        return absl::InternalError(strerror(errno));
+        ERROR("[" LINE_FILE "] %s", strerror(errno));
+        return;
     }
 
-    auto pair = absl::make_unique<SocketPair>();
+    auto pair = std::make_shared<SocketPair>(client.sin_port);
     pair->this_side_ = new_socket;
     pair->authentified_ = 0;
-    SocketPair* ptr = pair.get();
-    ProxySocket::GetInstance().AddPair(std::move(pair));
 
-    auto result = ProxySocket::GetConnPoller(ptr)->AddSocket(new_socket, flags);
+    auto result = SocketPairManager::GetConnPoller(pair.get())->AddSocket(new_socket, EPOLLIN);
+    SocketPairManager::AddPair(client.sin_port, std::move(pair)); // If ConnPoller::OnReadable() is called before this line, the socket pair will not found.
     if (!result.ok()) {
         LOG("[ProxyServer] Failed to add event");
         close(new_socket);
-        return result;
+        SocketPairManager::RemovePair(pair.get());
+        return;
     }
     LOG("\n[ProxyServer] OnReadable: %d", new_socket);
-
-    return absl::OkStatus();
+    return;
 }

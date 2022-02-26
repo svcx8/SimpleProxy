@@ -5,7 +5,7 @@
 
 class ProxyServer : public IBusinessEvent {
 public:
-    absl::Status OnReadable(int) override;
+    void OnReadable(int) override;
 };
 
 #endif // proxy_server.hh

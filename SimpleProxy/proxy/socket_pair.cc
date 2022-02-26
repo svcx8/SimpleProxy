@@ -1,0 +1,85 @@
+#include "socket_pair.hh"
+
+#include "dispatcher/epoller.hh"
+#include "memory_buffer.hh"
+#include "misc/logger.hh"
+
+std::map<int, std::shared_ptr<SocketPair>> SocketPairManager::socket_list_;
+std::mutex SocketPairManager::list_mutex_;
+// std::mutex SocketPairManager::conn_mutex_;
+// std::mutex SocketPairManager::client_mutex_;
+int SocketPairManager::last_poller_index_ = 1;
+
+SocketPair::~SocketPair() {
+    // std::unique_lock<std::mutex> lock(SocketPairManager::list_mutex_);
+    MemoryBuffer::RemovePool(this);
+}
+
+void SocketPairManager::AddPair(int port, std::shared_ptr<SocketPair>&& pair) {
+    std::unique_lock<std::mutex> lock(list_mutex_);
+    socket_list_[port] = std::move(pair);
+}
+
+void SocketPairManager::RemovePair(SocketPair* pair) {
+    std::unique_lock<std::mutex> lock(list_mutex_);
+
+    pair->this_poller_->RemoveSocket(pair->this_side_).IgnoreError();
+    close(pair->this_side_);
+
+    if(pair->other_poller_) {
+        pair->other_poller_->RemoveSocket(pair->other_side_).IgnoreError();
+        close(pair->other_side_);
+    }
+
+    SocketPairManager::socket_list_.erase(pair->port_);
+
+    // LOG("[RemovePair] After remove: %d - %d | port: %d size: %d", pair->this_side_, pair->other_side_, pair->port_, (int)socket_list_.size());
+}
+
+std::shared_ptr<SocketPair> SocketPairManager::GetPointer(int s) {
+    std::unique_lock<std::mutex> lock(list_mutex_);
+    for (const auto& item : socket_list_) {
+        if (item.second->this_side_ == s || item.second->other_side_ == s)
+            return item.second;
+    }
+    LOG("[SocketPairManager] The socket %d pair not found.", s);
+    return {};
+}
+
+// Client Poller reserved_list_[0] && reserved_list_[1]
+// Conn Poller reserved_list_[2] && reserved_list_[3]
+// set reserved_list_[0] && reserved_list_[2] as a group
+
+IPoller* SocketPairManager::GetConnPoller(SocketPair* pair) {
+    // std::unique_lock<std::mutex> lock(conn_mutex_);
+    if (pair->this_poller_ == nullptr) {
+        LOG("[SocketPairManager::GetConnPoller] last_poller_index_: %d %d", pair->this_side_, last_poller_index_);
+        pair->this_poller_ = EPoller::reserved_list_[last_poller_index_ + 1];
+        last_poller_index_ = last_poller_index_ % 2 + 1;
+        /*
+            last_poller_index_ = 1, 2, 1, 2, 1, 2......
+        */
+        return pair->this_poller_;
+    }
+
+    else {
+        return pair->this_poller_;
+    }
+}
+
+IPoller* SocketPairManager::GetClientPoller(SocketPair* pair) {
+    // std::unique_lock<std::mutex> lock(client_mutex_);
+    if (pair->other_poller_ == nullptr) {
+        LOG("[SocketPairManager::GetClientPoller] last_poller_index_: %d %d", pair->other_side_, last_poller_index_);
+        pair->other_poller_ = EPoller::reserved_list_[last_poller_index_ - 1];
+        last_poller_index_ = last_poller_index_ % 2 + 1;
+        /*
+            last_poller_index_ = 1, 2, 1, 2, 1, 2......
+        */
+        return pair->other_poller_;
+    }
+
+    else {
+        return pair->other_poller_;
+    }
+}

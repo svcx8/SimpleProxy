@@ -10,8 +10,8 @@
 #include <absl/status/statusor.h>
 
 namespace DNSResolver {
-    absl::StatusOr<addrinfo*> Resolve(const char* domain);
-    absl::StatusOr<sockaddr_in*> ResolveDoH(std::string& domain);
+    absl::StatusOr<sockaddr*> Resolve(const std::string& domain);
+    absl::StatusOr<sockaddr_in*> ResolveDoH(const std::string& domain);
 } // namespace DNSResolver
 
 #endif // dns_resolver.hh

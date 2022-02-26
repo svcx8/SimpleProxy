@@ -6,6 +6,7 @@
 #include <sys/epoll.h>
 
 #include <array>
+// #include <string>
 #include <vector>
 
 #include "ipoller.hh"
@@ -15,6 +16,9 @@ constexpr int MAX_EVENT_NUMBER = 64;
 class EPoller : public IPoller {
 public:
     int id_ = 0;
+    // std::shared_ptr<spdlog::logger> logger_;
+    // std::string name;
+
     EPoller(IBusinessEvent* business, int _id);
     ~EPoller(){};
 
@@ -24,6 +28,7 @@ public:
 
     void Poll() override;
     void HandleEvents(int s, uint32_t event);
+
     std::array<epoll_event, MAX_EVENT_NUMBER> event_array_{};
 
     static int SetNonBlocking(int);

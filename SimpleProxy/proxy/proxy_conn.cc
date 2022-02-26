@@ -1,15 +1,17 @@
 #include "proxy_conn.hh"
 
 #include <absl/status/status.h>
-#include <linux/eventpoll.h>
 #include <memory>
 #include <string_view>
 
+#include "dispatcher/epoller.hh"
 #include "memory_buffer.hh"
 #include "misc/configuration.hh"
 #include "misc/logger.hh"
+#include "misc/net.hh"
+#include "proxy/socket_pair.hh"
 #include "proxy_client.hh"
-#include "proxy_socket.hh"
+#include "socks5.hh"
 
 /*
     ConnSocket->recv(); // Recv from client.
@@ -17,9 +19,14 @@
 */
 
 void ErrorHandler(SocketPair* pair) {
-    if (pair->authentified_ == 1)
-        send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
-    ProxySocket::GetInstance().RemovePair(pair->this_side_);
+    if (pair->authentified_ == 1) {
+        int res = send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
+        if (res == SOCKET_ERROR) {
+            LOG("[ErrorHandler] %s", strerror(errno));
+        }
+    }
+
+    SocketPairManager::RemovePair(pair);
 }
 
 absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
@@ -32,7 +39,7 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 
     if (pair->authentified_ == 0) {
         // First handshake, check valid socks5 header.
-        Socks5Header head((unsigned char*)head_buf);
+        Socks5Header head(head_buf);
         if (!head.Check()) {
             ErrorHandler(pair);
             return absl::InternalError("Unsupported version or methods.");
@@ -46,9 +53,10 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 
     else if (pair->authentified_ == 1) {
         // Second handshake, recv command.
-        Socks5Command command((unsigned char*)head_buf);
+        Socks5Command command(head_buf);
         auto result = command.Check();
         if (!result.ok()) {
+            LOG("[CheckSocks5Handshake] [%d] check command: %.*s", pair->this_side_, (int)result.message().size(), result.message().data());
             ErrorHandler(pair);
             return result;
         }
@@ -57,18 +65,19 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
         if (command.address_type_ == 0x1) {
             char buffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_addr, buffer, sizeof(buffer));
-            printf("\taddress4: %s:%d\n", buffer, htons(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_port));
+            LOG("\taddress4: %s:%d\n", buffer, htons(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_port));
             pair->other_side_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
         }
 
         else if (command.address_type_ == 0x4) {
             char buffer[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6*>(command.sock_addr_)->sin6_addr, buffer, sizeof(buffer));
-            printf("\taddress6: %s:%d\n", buffer, htons(reinterpret_cast<sockaddr_in6*>(command.sock_addr_)->sin6_port));
+            LOG("\taddress6: %s:%d\n", buffer, htons(reinterpret_cast<sockaddr_in6*>(command.sock_addr_)->sin6_port));
         }
 #endif
 
-        pair->other_side_ = socket(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_family, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+        pair->other_side_ = socket(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_family,
+                                   SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 
         if (pair->other_side_ == SOCKET_ERROR) {
             ErrorHandler(pair);
@@ -83,67 +92,98 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
             }
         }
 
-        result = ProxySocket::GetClientPoller(pair)->AddSocket(pair->other_side_, EPOLLOUT);
+        result = SocketPairManager::GetClientPoller(pair)->AddSocket(pair->other_side_, EPOLLOUT);
         if (!result.ok()) {
             ErrorHandler(pair);
             return absl::InternalError("[ProxyConn] Failed to add event.");
         }
 
-        LOG("[ProxyConn] Server: %d | Type: %02X", pair->other_side_, command.address_type_);
+        // reinterpret_cast<EPoller*>(poller_)->logger_->info("[ProxyConn] Server: {} - {} | Type: {:02d}", pair->this_side_, pair->other_side_, command.address_type_);
     }
 
     pair->authentified_++;
     return absl::OkStatus();
 }
 
-absl::Status ProxyConn::OnReadable(int s) {
-    auto pair = ProxySocket::GetInstance().GetPointer(s);
-    if (!pair) {
-        return absl::FailedPreconditionError("[" LINE_FILE "] Socket not found in ProxySocket::socket_list_.");
+void ProxyConn::OnReadable(int s) {
+    auto ptr = SocketPairManager::GetPointer(s);
+    if (!ptr) {
+        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] Socket not found in SocketPairManager::socket_list_.", s, __func__);
+        return;
     }
 
+    auto pair = ptr.get();
+
+    // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
+
     if (pair->authentified_ < 2) {
-        return CheckSocks5Handshake(pair);
+        auto result = CheckSocks5Handshake(pair);
+        if (!result.ok()) {
+            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+        }
     }
 
     else {
         // Receiving from Client, e.g. curl https://baidu.com
         if (auto buffer_pool = MemoryBuffer::GetPool(s)) {
             auto result = buffer_pool->Receive(s);
+            // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] [{}] start: {} | end: {}", __func__, s, buffer_pool->start_, buffer_pool->end_);
 
             if (result.ok()) {
                 result.Update(buffer_pool->Send(pair->other_side_));
             }
 
-            if (result.code() == absl::StatusCode::kResourceExhausted) {
-                result = absl::OkStatus();
-                // The buffer of proxy server cannot receive more data, add to poller.
-                // absl::Status ProxyClient::OnWritable(int s) will send remaining data.
-                result.Update(ProxySocket::GetClientPoller(pair)->ModSocket(pair->other_side_, EPOLLOUT));
-                result.Update(poller_->RemoveSocket(pair->this_side_));
-            }
+            if (!result.ok()) {
+                if (result.code() != absl::StatusCode::kResourceExhausted) {
+                    // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+                    SocketPairManager::RemovePair(pair);
+                    return;
+                } else {
+                    result = absl::OkStatus();
+                    // The buffer of proxy server cannot receive more data, add to poller.
+                    // absl::Status ProxyClient::OnWritable(int s) will send remaining data.
+                    result.Update(poller_->RemoveSocket(pair->this_side_));
+                    result.Update(pair->other_poller_->ModSocket(pair->other_side_, EPOLLOUT));
 
-            return result;
+                    if (!result.ok()) {
+                        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+                    }
+                }
+            }
         } else {
-            return absl::FailedPreconditionError("[" LINE_FILE "] GetPool return null");
+            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] GetPool return null", __func__);
         }
     }
 }
 
-absl::Status ProxyConn::OnWritable(int s) {
-    auto pair = ProxySocket::GetInstance().GetPointer(s);
+void ProxyConn::OnWritable(int s) {
+    auto ptr = SocketPairManager::GetPointer(s);
+    if (!ptr) {
+        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] Socket not found in SocketPairManager::socket_list_.", s, __func__);
+        return;
+    }
+
+    auto pair = ptr.get();
+
+    // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
     if (auto buffer_pool = MemoryBuffer::GetPool(pair->other_side_)) {
         auto result = buffer_pool->Send(pair->this_side_);
+        // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
         if (!result.ok()) {
-            return result;
+            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] {}", __func__, result.message());
+            SocketPairManager::RemovePair(pair);
+            return;
         }
         // If the buffer is empty, we can remove EPOLLOUT event.
         if (buffer_pool->Usage() == 0 /*&& pair->token_bucket_->blocked_ == false*/) {
             result.Update(poller_->ModSocket(pair->this_side_, EPOLLIN));
-            result.Update(ProxySocket::GetClientPoller(pair)->AddSocket(pair->other_side_, EPOLLIN));
+            result.Update(pair->other_poller_->AddSocket(pair->other_side_, EPOLLIN));
         }
-        return result;
+
+        if (!result.ok()) {
+            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+        }
     } else {
-        return absl::FailedPreconditionError("[" LINE_FILE "] GetPool return null");
+        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] GetPool return null", __func__);
     }
 }

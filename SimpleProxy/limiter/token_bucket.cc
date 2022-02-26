@@ -1,6 +1,5 @@
 #include "token_bucket.hh"
 
-#include <linux/eventpoll.h>
 #include <sys/types.h>
 
 #include <chrono>
@@ -11,6 +10,7 @@
 #include <absl/status/status.h>
 
 #include "misc/logger.hh"
+#include "misc/net.hh"
 
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;

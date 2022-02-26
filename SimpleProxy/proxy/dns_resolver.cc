@@ -1,9 +1,9 @@
 #include "dns_resolver.hh"
 
+#include <arpa/inet.h>
+
 #include "misc/configuration.hh"
 #include "misc/logger.hh"
-
-#include <arpa/inet.h>
 
 #include <cpr/cpr.h>
 #include <rapidjson/document.h>
@@ -12,8 +12,8 @@
 using namespace cpr;
 using namespace rapidjson;
 
-absl::StatusOr<addrinfo*> DNSResolver::Resolve(const char* domain) {
-    LOG("[Native] domain: %s", domain);
+absl::StatusOr<sockaddr*> DNSResolver::Resolve(const std::string& domain) {
+    LOG("[Native] domain: %s", domain.c_str());
     struct addrinfo hints;
     struct addrinfo* result;
 
@@ -22,14 +22,19 @@ absl::StatusOr<addrinfo*> DNSResolver::Resolve(const char* domain) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = 0;
 
-    if (getaddrinfo(domain, nullptr, &hints, &result) != 0) {
+    if (getaddrinfo(domain.c_str(), nullptr, &hints, &result) != 0) {
         return absl::InternalError("Cannot resolve this domain.");
     }
-    return result;
+
+    sockaddr* ia = new sockaddr();
+    memcpy(ia, result->ai_addr, sizeof(sockaddr));
+
+    freeaddrinfo(result);
+    return ia;
 }
 
 // curl -H "accept: application/dns-json" "https://doh.pub/dns-query?type=A&name=example.com"
-absl::StatusOr<sockaddr_in*> DNSResolver::ResolveDoH(std::string& domain) {
+absl::StatusOr<sockaddr_in*> DNSResolver::ResolveDoH(const std::string& domain) {
     LOG("[DoH] domain: %s", domain.c_str());
     Response r = Get(Url{ Configuration::GetInstance().doh_server_ },
                      Header{ { "accept", "application/json" } },

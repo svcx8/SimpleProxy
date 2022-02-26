@@ -6,10 +6,11 @@
 #include "misc/configuration.hh"
 #include "misc/logger.hh"
 
-Socks5Header::Socks5Header(unsigned char* buffer) {
-    version_ = buffer[0];
-    auth_method_count_ = buffer[1];
-    methods_ = &buffer[2];
+Socks5Header::Socks5Header(void* buffer) {
+    unsigned char* buf = reinterpret_cast<unsigned char*>(buffer);
+    version_ = buf[0];
+    auth_method_count_ = buf[1];
+    methods_ = &buf[2];
 }
 
 bool Socks5Header::Check() {
@@ -25,12 +26,12 @@ bool Socks5Header::Check() {
     return is_valid;
 }
 
-Socks5Command::Socks5Command(unsigned char* buffer) : head_buffer_(buffer) {
+Socks5Command::Socks5Command(void* buffer) : head_buffer_(reinterpret_cast<unsigned char*>(buffer)) {
     int index = 0;
-    version_ = buffer[index++];
-    command_ = buffer[index++];
-    reserved_ = buffer[index++];
-    address_type_ = buffer[index++];
+    version_ = head_buffer_[index++];
+    command_ = head_buffer_[index++];
+    reserved_ = head_buffer_[index++];
+    address_type_ = head_buffer_[index++];
 }
 
 absl::Status Socks5Command::Check() {
@@ -48,16 +49,14 @@ absl::Status Socks5Command::Check() {
                 return result.status();
             }
             sock_addr_ = reinterpret_cast<sockaddr*>(*result);
-            sock_addr_len_ = sizeof(sockaddr_in);
-
         } else {
-            auto result = DNSResolver::Resolve(domain.c_str());
+            auto result = DNSResolver::Resolve(domain);
             if (!result.ok()) {
                 return result.status();
             }
-            sock_addr_ = (*result)->ai_addr;
-            sock_addr_len_ = (*result)->ai_addrlen;
+            sock_addr_ = *result;
         }
+        sock_addr_len_ = sizeof(sockaddr_in);
         reinterpret_cast<sockaddr_in*>(sock_addr_)->sin_port = *(short int*)&head_buffer_[index];
     }
 

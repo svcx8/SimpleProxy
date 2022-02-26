@@ -2,6 +2,8 @@
 
 #include <fcntl.h>
 
+#include <memory>
+
 #include "epoller.hh"
 #include "misc/logger.hh"
 
@@ -11,6 +13,12 @@ EPoller::EPoller(IBusinessEvent* business, int _id) : id_(_id) {
     epoller_inst_ = epoll_create1(0);
     op_ = business;
     op_->poller_ = reinterpret_cast<IPoller*>(this);
+    // name = "Poller-" + std::to_string(id_);
+    // std::string file = "/tmp/logs/poller-log-" + std::to_string(id_) + ".txt";
+    // auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(file);
+    // logger_ = std::make_shared<spdlog::logger>(name, sink);
+    // logger_->set_level(spdlog::level::info);
+    // LOG("[%d] logger_: %p", id_, logger_.get());
 }
 
 int EPoller::SetNonBlocking(int fd) {
@@ -25,6 +33,7 @@ absl::Status EPoller::AddSocket(int s, long eventflags) {
     _event.events = eventflags;
     SetNonBlocking(s);
     if (epoll_ctl(epoller_inst_, EPOLL_CTL_ADD, s, &_event) == -1) {
+        LOG("[AddSocket] [%d] %s", s, strerror(errno));
         return absl::InternalError(strerror(errno));
     }
     return absl::OkStatus();
@@ -35,6 +44,7 @@ absl::Status EPoller::ModSocket(int s, long eventflags) {
     _event.data.fd = s;
     _event.events = eventflags;
     if (epoll_ctl(epoller_inst_, EPOLL_CTL_MOD, s, &_event) == -1) {
+        LOG("[ModSocket] [%d] %s", s, strerror(errno));
         return absl::InternalError(strerror(errno));
     }
     return absl::OkStatus();
@@ -42,6 +52,7 @@ absl::Status EPoller::ModSocket(int s, long eventflags) {
 
 absl::Status EPoller::RemoveSocket(int s) {
     if (epoll_ctl(epoller_inst_, EPOLL_CTL_DEL, s, nullptr) == -1) {
+        LOG("[RemoveSocket] [%d] %s", s, strerror(errno));
         return absl::InternalError(strerror(errno));
     } else {
         return absl::OkStatus();
@@ -49,7 +60,7 @@ absl::Status EPoller::RemoveSocket(int s) {
 }
 
 void EPoller::Poll() {
-    int CompEventNum = epoll_wait(epoller_inst_, &event_array_[0], MAX_EVENT_NUMBER, 30000);
+    int CompEventNum = epoll_wait(epoller_inst_, &event_array_[0], MAX_EVENT_NUMBER, 3000);
     for (int i = 0; i < CompEventNum; ++i) {
         HandleEvents(event_array_[i].data.fd, event_array_[i].events);
     }
@@ -57,17 +68,11 @@ void EPoller::Poll() {
 
 void EPoller::HandleEvents(int s, uint32_t event) {
     if (event & EPOLLIN) {
-        auto result = op_->OnReadable(s);
-        if (!result.ok()) {
-            ERROR("[EPoller::HandleEvents::OnReadable] %.*s", (int)result.message().size(), result.message().data());
-        }
+        op_->OnReadable(s);
     }
 
     else if (event & EPOLLOUT) {
-        auto result = op_->OnWritable(s);
-        if (!result.ok()) {
-            ERROR("[EPoller::HandleEvents::OnWritable] %.*s", (int)result.message().size(), result.message().data());
-        }
+        op_->OnWritable(s);
     }
 }
 
