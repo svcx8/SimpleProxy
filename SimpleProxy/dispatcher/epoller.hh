@@ -16,8 +16,6 @@ constexpr int MAX_EVENT_NUMBER = 64;
 class EPoller : public IPoller {
 public:
     int id_ = 0;
-    // std::shared_ptr<spdlog::logger> logger_;
-    // std::string name;
 
     EPoller(IBusinessEvent* business, int _id);
     ~EPoller(){};

@@ -36,7 +36,7 @@ absl::StatusOr<sockaddr*> DNSResolver::Resolve(const std::string& domain) {
 // curl -H "accept: application/dns-json" "https://doh.pub/dns-query?type=A&name=example.com"
 absl::StatusOr<sockaddr_in*> DNSResolver::ResolveDoH(const std::string& domain) {
     LOG("[DoH] domain: %s", domain.c_str());
-    Response r = Get(Url{ Configuration::GetInstance().doh_server_ },
+    Response r = Get(Url{ Configuration::doh_server_ },
                      Header{ { "accept", "application/json" } },
                      Parameters{ { "type", "A" }, { "name", domain } },
                      VerifySsl(false));

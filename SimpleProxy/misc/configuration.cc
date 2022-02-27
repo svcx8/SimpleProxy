@@ -44,7 +44,11 @@ StatusOr<Document> LoadJsonFromFile(const char* FilePath) {
     return doc;
 }
 
-Configuration::Configuration() : enable_doh_(false) {
+int Configuration::port_ = 2333;
+bool Configuration::enable_doh_ = false;
+std::string Configuration::doh_server_{ "https://doh.pub/dns-query" };
+
+Configuration::Configuration() {
     auto result = LoadJsonFromFile("proxy.json");
     if (result.ok()) {
         Document& doc = *result;

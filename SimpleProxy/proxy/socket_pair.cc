@@ -6,12 +6,9 @@
 
 std::map<int, std::shared_ptr<SocketPair>> SocketPairManager::socket_list_;
 std::mutex SocketPairManager::list_mutex_;
-// std::mutex SocketPairManager::conn_mutex_;
-// std::mutex SocketPairManager::client_mutex_;
 int SocketPairManager::last_poller_index_ = 1;
 
 SocketPair::~SocketPair() {
-    // std::unique_lock<std::mutex> lock(SocketPairManager::list_mutex_);
     MemoryBuffer::RemovePool(this);
 }
 
@@ -32,8 +29,6 @@ void SocketPairManager::RemovePair(SocketPair* pair) {
     }
 
     SocketPairManager::socket_list_.erase(pair->port_);
-
-    // LOG("[RemovePair] After remove: %d - %d | port: %d size: %d", pair->this_side_, pair->other_side_, pair->port_, (int)socket_list_.size());
 }
 
 std::shared_ptr<SocketPair> SocketPairManager::GetPointer(int s) {
@@ -68,7 +63,6 @@ IPoller* SocketPairManager::GetConnPoller(SocketPair* pair) {
 }
 
 IPoller* SocketPairManager::GetClientPoller(SocketPair* pair) {
-    // std::unique_lock<std::mutex> lock(client_mutex_);
     if (pair->other_poller_ == nullptr) {
         LOG("[SocketPairManager::GetClientPoller] last_poller_index_: %d %d", pair->other_side_, last_poller_index_);
         pair->other_poller_ = EPoller::reserved_list_[last_poller_index_ - 1];

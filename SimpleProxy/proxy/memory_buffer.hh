@@ -26,7 +26,6 @@ public:
 
 private:
     static std::map<int, MemoryBuffer*> buffer_array_;
-    static std::mutex pool_mutex_;
 };
 
 #endif // memory_buffer.hh

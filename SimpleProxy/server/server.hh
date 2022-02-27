@@ -2,17 +2,16 @@
 #define SERVER_HEADER
 
 #include "misc/net.hh"
-#include "misc/singleton.hh"
 
 #include <absl/status/status.h>
 
-class Server : public Singleton<Server> {
+class Server {
 public:
-    int server_socket_;
-    int Send(void* buffer, std::size_t size) {
+    static int server_socket_;
+    static int Send(void* buffer, std::size_t size) {
         return send(server_socket_, (char*)buffer, size, 0);
     }
-    absl::Status Start(int Port);
+    static absl::Status Start(int Port);
 };
 
 #endif // server.hh

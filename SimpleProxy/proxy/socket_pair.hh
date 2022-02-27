@@ -13,7 +13,6 @@ public:
     SocketPair(int port) : port_(port) {}
     IPoller* this_poller_ = nullptr;
     IPoller* other_poller_ = nullptr;
-    std::mutex socket_pair_mutex_ {};
     int port_ = 0;
     int this_side_ = 0;
     int other_side_ = 0;
@@ -35,8 +34,6 @@ public:
 private:
     static std::map<int, std::shared_ptr<SocketPair>> socket_list_; // Set the client port as index.
     static std::mutex list_mutex_;
-    // static std::mutex conn_mutex_;
-    // static std::mutex client_mutex_;
     static int last_poller_index_;
 };
 

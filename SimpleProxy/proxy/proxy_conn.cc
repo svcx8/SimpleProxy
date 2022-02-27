@@ -97,8 +97,6 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
             ErrorHandler(pair);
             return absl::InternalError("[ProxyConn] Failed to add event.");
         }
-
-        // reinterpret_cast<EPoller*>(poller_)->logger_->info("[ProxyConn] Server: {} - {} | Type: {:02d}", pair->this_side_, pair->other_side_, command.address_type_);
     }
 
     pair->authentified_++;
@@ -108,18 +106,15 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 void ProxyConn::OnReadable(int s) {
     auto ptr = SocketPairManager::GetPointer(s);
     if (!ptr) {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] Socket not found in SocketPairManager::socket_list_.", s, __func__);
         return;
     }
 
     auto pair = ptr.get();
 
-    // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
-
     if (pair->authentified_ < 2) {
         auto result = CheckSocks5Handshake(pair);
         if (!result.ok()) {
-            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+            // TODO
         }
     }
 
@@ -127,7 +122,6 @@ void ProxyConn::OnReadable(int s) {
         // Receiving from Client, e.g. curl https://baidu.com
         if (auto buffer_pool = MemoryBuffer::GetPool(s)) {
             auto result = buffer_pool->Receive(s);
-            // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] [{}] start: {} | end: {}", __func__, s, buffer_pool->start_, buffer_pool->end_);
 
             if (result.ok()) {
                 result.Update(buffer_pool->Send(pair->other_side_));
@@ -135,7 +129,6 @@ void ProxyConn::OnReadable(int s) {
 
             if (!result.ok()) {
                 if (result.code() != absl::StatusCode::kResourceExhausted) {
-                    // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
                     SocketPairManager::RemovePair(pair);
                     return;
                 } else {
@@ -146,12 +139,10 @@ void ProxyConn::OnReadable(int s) {
                     result.Update(pair->other_poller_->ModSocket(pair->other_side_, EPOLLOUT));
 
                     if (!result.ok()) {
-                        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+                        // TODO
                     }
                 }
             }
-        } else {
-            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] GetPool return null", __func__);
         }
     }
 }
@@ -159,18 +150,14 @@ void ProxyConn::OnReadable(int s) {
 void ProxyConn::OnWritable(int s) {
     auto ptr = SocketPairManager::GetPointer(s);
     if (!ptr) {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] Socket not found in SocketPairManager::socket_list_.", s, __func__);
         return;
     }
 
     auto pair = ptr.get();
 
-    // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
     if (auto buffer_pool = MemoryBuffer::GetPool(pair->other_side_)) {
         auto result = buffer_pool->Send(pair->this_side_);
-        // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
         if (!result.ok()) {
-            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] {}", __func__, result.message());
             SocketPairManager::RemovePair(pair);
             return;
         }
@@ -181,9 +168,7 @@ void ProxyConn::OnWritable(int s) {
         }
 
         if (!result.ok()) {
-            // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+            // TODO
         }
-    } else {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] GetPool return null", __func__);
     }
 }

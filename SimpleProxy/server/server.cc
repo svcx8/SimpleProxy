@@ -2,6 +2,8 @@
 
 #include "misc/logger.hh"
 
+int Server::server_socket_ = -1;
+
 absl::Status Server::Start(int Port) {
     server_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (server_socket_ == SOCKET_ERROR) {

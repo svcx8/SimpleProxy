@@ -13,12 +13,6 @@ EPoller::EPoller(IBusinessEvent* business, int _id) : id_(_id) {
     epoller_inst_ = epoll_create1(0);
     op_ = business;
     op_->poller_ = reinterpret_cast<IPoller*>(this);
-    // name = "Poller-" + std::to_string(id_);
-    // std::string file = "/tmp/logs/poller-log-" + std::to_string(id_) + ".txt";
-    // auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(file);
-    // logger_ = std::make_shared<spdlog::logger>(name, sink);
-    // logger_->set_level(spdlog::level::info);
-    // LOG("[%d] logger_: %p", id_, logger_.get());
 }
 
 int EPoller::SetNonBlocking(int fd) {

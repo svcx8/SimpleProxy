@@ -27,7 +27,7 @@ void signal_callback_handler(int signum) {
 int main() {
     signal(SIGPIPE, signal_callback_handler);
 
-    auto result = Server::GetInstance().Start(Configuration::GetInstance().port_);
+    auto result = Server::Start(Configuration::port_);
     if (!result.ok()) {
         ERROR("%.*s", (int)result.message().size(), result.message().data());
         return -1;
@@ -35,7 +35,7 @@ int main() {
     EPoller* server_poller = new EPoller(new ProxyServer(), 99);
     constexpr long flags = EPOLLIN;
 
-    result = server_poller->AddSocket(Server::GetInstance().server_socket_, flags);
+    result = server_poller->AddSocket(Server::server_socket_, flags);
     if (!result.ok()) {
         ERROR("%.*s", (int)result.message().size(), result.message().data());
         return -1;
@@ -54,34 +54,29 @@ int main() {
     EPoller::reserved_list_.push_back(conn_poller_2);
 
     std::thread([&] {
-        // conn_poller_1->logger_->info("[++] ConnPoller1 Start");
         while (true) {
             conn_poller_1->Poll();
         }
     }).detach();
 
     std::thread([&] {
-        // conn_poller_2->logger_->info("[++] ConnPoller2 Start");
         while (true) {
             conn_poller_2->Poll();
         }
     }).detach();
 
     std::thread([&] {
-        // client_poller_1->logger_->info("[++] ClientPoller1 Start");
         while (true) {
             client_poller_1->Poll();
         }
     }).detach();
 
     std::thread([&] {
-        // client_poller_2->logger_->info("[++] ClientPoller2 Start");
         while (true) {
             client_poller_2->Poll();
         }
     }).detach();
 
-    // server_poller->logger_->info("[++] ServerPoller Start");
     while (true) {
         server_poller->Poll();
     }

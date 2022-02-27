@@ -43,7 +43,7 @@ absl::Status Socks5Command::Check() {
         index += domain_len;
         address_type_ = 0x01;
 
-        if (Configuration::GetInstance().enable_doh_) {
+        if (Configuration::enable_doh_) {
             auto result = DNSResolver::ResolveDoH(domain);
             if (!result.ok()) {
                 return result.status();

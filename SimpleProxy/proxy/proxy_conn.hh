@@ -2,7 +2,6 @@
 #define PROXY_CONN_HEADER
 
 #include "dispatcher/ipoller.hh"
-#include "misc/singleton.hh"
 #include "socket_pair.hh"
 
 class ProxyConn : public IBusinessEvent {

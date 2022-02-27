@@ -10,12 +10,12 @@
 int main() {
     const char* IP = "127.0.0.1";
     int Port = 2345;
-    Server::GetInstance().Start(Port);
+    Server::Start(Port);
 
     IPoller* ServerPoller = new EPoller(new EchoServer(), 1);
     constexpr long flags = EPOLLIN;
 
-    ServerPoller->AddSocket(Server::GetInstance().server_socket_, flags);
+    ServerPoller->AddSocket(Server::server_socket_, flags);
 
     IPoller* ConnPoller = new EPoller(new EchoConn(), 2);
     EPoller::reserved_list_.push_back(ConnPoller);

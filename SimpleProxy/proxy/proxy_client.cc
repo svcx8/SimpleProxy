@@ -59,17 +59,13 @@
 void ProxyClient::OnReadable(int s) {
     auto ptr = SocketPairManager::GetPointer(s);
     if (!ptr) {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] Socket not found in SocketPairManager::socket_list_.", s, __func__);
         return;
     }
 
     auto pair = ptr.get();
 
-    // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
-
     if (auto buffer_pool = MemoryBuffer::GetPool(s)) {
         auto result = buffer_pool->Receive(s);
-        // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] [{}] start: {} | end: {}", __func__, s, buffer_pool->start_, buffer_pool->end_);
 
         if (result.ok()) {
             // auto wait_time = pair->token_bucket_.get()->Consume(*recv_res);
@@ -82,7 +78,6 @@ void ProxyClient::OnReadable(int s) {
 
         if (!result.ok()) {
             if (result.code() != absl::StatusCode::kResourceExhausted) {
-                // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #]" LINE_STRING " [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
                 SocketPairManager::RemovePair(pair);
                 return;
             } else {
@@ -93,12 +88,10 @@ void ProxyClient::OnReadable(int s) {
                 result.Update(pair->this_poller_->ModSocket(pair->this_side_, EPOLLOUT));
 
                 if (!result.ok()) {
-                    // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] [{}] {}", __func__, pair->this_side_, pair->other_side_, result.message());
+                    // TODO
                 }
             }
         }
-    } else {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] GetPool return null", __func__);
     }
 }
 
@@ -106,27 +99,22 @@ void ProxyClient::OnReadable(int s) {
 void ProxyClient::OnWritable(int s) {
     auto ptr = SocketPairManager::GetPointer(s);
     if (!ptr) {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] [{}] Socket not found in SocketPairManager::socket_list_.", s, __func__);
         return;
     }
 
     auto pair = ptr.get();
-
-    // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] {}: {} - {}", __func__, s, pair->this_side_, pair->other_side_);
 
     if (auto buffer_pool = MemoryBuffer::GetPool(pair->this_side_)) {
         if (pair->authentified_ == 2) {
             int socket_error = 0;
             socklen_t socket_error_len = sizeof(socket_error);
             if (getsockopt(pair->other_side_, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len) < 0) {
-                // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] %s", __func__, strerror(errno));
                 return;
             }
 
             if (socket_error != 0) {
                 send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
                 SocketPairManager::RemovePair(pair);
-                // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] %s", __func__, strerror(errno));
                 return;
             }
 
@@ -134,21 +122,18 @@ void ProxyClient::OnWritable(int s) {
 
             if (send(pair->this_side_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
                 SocketPairManager::RemovePair(pair);
-                // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] %s", __func__, strerror(errno));
                 return;
             }
 
-            // pair->token_bucket_ = std::make_unique<TokenBucket>(Configuration::GetInstance().fill_period_,
-            //                                                     Configuration::GetInstance().fill_tick_,
-            //                                                     Configuration::GetInstance().capacity_);
+            // pair->token_bucket_ = std::make_unique<TokenBucket>(Configuration::fill_period_,
+            //                                                     Configuration::fill_tick_,
+            //                                                     Configuration::capacity_);
             pair->authentified_++;
             return;
         } else {
             auto result = buffer_pool->Send(pair->other_side_);
-            // reinterpret_cast<EPoller*>(poller_)->logger_->info("[{}: #" LINE_STRING "] [{}] start: {} | end: {}", __func__, s, buffer_pool->start_, buffer_pool->end_);
             if (!result.ok()) {
                 SocketPairManager::RemovePair(pair);
-                // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #]" LINE_STRING " [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
                 return;
             }
             // Remove EPOLLOUT event after the buffer is empty.
@@ -158,10 +143,8 @@ void ProxyClient::OnWritable(int s) {
             }
 
             if (!result.ok()) {
-                // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #]" LINE_STRING " [{}] [{}] [{}] {}", __func__, s, pair->this_side_, pair->other_side_, result.message());
+                // TODO
             }
         }
-    } else {
-        // reinterpret_cast<EPoller*>(poller_)->logger_->error("[{}: #" LINE_STRING "] GetPool return null");
     }
 }
