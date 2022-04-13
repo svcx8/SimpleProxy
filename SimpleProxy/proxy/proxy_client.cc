@@ -57,12 +57,10 @@
 
 // Receiving from Server. | Download | EPOLLIN
 void ProxyClient::OnReadable(int s) {
-    auto ptr = SocketPairManager::GetPointer(s);
-    if (!ptr) {
+    auto pair = SocketPairManager::GetPointer(s);
+    if (!pair) {
         return;
     }
-
-    auto pair = ptr.get();
 
     if (auto buffer_pool = MemoryBuffer::GetPool(s)) {
         auto result = buffer_pool->Receive(s);
@@ -97,12 +95,10 @@ void ProxyClient::OnReadable(int s) {
 
 // Sending to Server. | Upload | EPOLLOUT
 void ProxyClient::OnWritable(int s) {
-    auto ptr = SocketPairManager::GetPointer(s);
-    if (!ptr) {
+    auto pair = SocketPairManager::GetPointer(s);
+    if (!pair) {
         return;
     }
-
-    auto pair = ptr.get();
 
     if (auto buffer_pool = MemoryBuffer::GetPool(pair->this_side_)) {
         if (pair->authentified_ == 2) {

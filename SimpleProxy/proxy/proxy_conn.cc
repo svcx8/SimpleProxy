@@ -104,12 +104,10 @@ absl::Status ProxyConn::CheckSocks5Handshake(SocketPair* pair) {
 }
 
 void ProxyConn::OnReadable(int s) {
-    auto ptr = SocketPairManager::GetPointer(s);
-    if (!ptr) {
+    auto pair = SocketPairManager::GetPointer(s);
+    if (!pair) {
         return;
     }
-
-    auto pair = ptr.get();
 
     if (pair->authentified_ < 2) {
         auto result = CheckSocks5Handshake(pair);
@@ -148,12 +146,10 @@ void ProxyConn::OnReadable(int s) {
 }
 
 void ProxyConn::OnWritable(int s) {
-    auto ptr = SocketPairManager::GetPointer(s);
-    if (!ptr) {
+    auto pair = SocketPairManager::GetPointer(s);
+    if (!pair) {
         return;
     }
-
-    auto pair = ptr.get();
 
     if (auto buffer_pool = MemoryBuffer::GetPool(pair->other_side_)) {
         auto result = buffer_pool->Send(pair->this_side_);

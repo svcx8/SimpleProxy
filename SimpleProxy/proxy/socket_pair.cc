@@ -4,7 +4,7 @@
 #include "memory_buffer.hh"
 #include "misc/logger.hh"
 
-std::map<int, std::shared_ptr<SocketPair>> SocketPairManager::socket_list_;
+std::map<int, SocketPair*> SocketPairManager::socket_list_;
 std::mutex SocketPairManager::list_mutex_;
 int SocketPairManager::last_poller_index_ = 1;
 
@@ -12,27 +12,36 @@ SocketPair::~SocketPair() {
     MemoryBuffer::RemovePool(this);
 }
 
-void SocketPairManager::AddPair(int port, std::shared_ptr<SocketPair>&& pair) {
-    std::unique_lock<std::mutex> lock(list_mutex_);
-    socket_list_[port] = std::move(pair);
+void SocketPairManager::AddPair(int port, int s) {
+    std::lock_guard<std::mutex> lock(list_mutex_);
+    auto pair = new SocketPair(port, s);
+    socket_list_[port] = pair;
+    auto result = SocketPairManager::GetConnPoller(pair)->AddSocket(s, EPOLLIN);
+    if (!result.ok()) {
+        LOG("[SocketPairManager] Failed to add event");
+        close(s);
+        SocketPairManager::RemovePair(pair);
+        return;
+    }
 }
 
 void SocketPairManager::RemovePair(SocketPair* pair) {
-    std::unique_lock<std::mutex> lock(list_mutex_);
+    std::lock_guard<std::mutex> lock(list_mutex_);
 
     pair->this_poller_->RemoveSocket(pair->this_side_).IgnoreError();
     close(pair->this_side_);
 
-    if(pair->other_poller_) {
+    if (pair->other_poller_) {
         pair->other_poller_->RemoveSocket(pair->other_side_).IgnoreError();
         close(pair->other_side_);
     }
 
     SocketPairManager::socket_list_.erase(pair->port_);
+    delete pair;
 }
 
-std::shared_ptr<SocketPair> SocketPairManager::GetPointer(int s) {
-    std::unique_lock<std::mutex> lock(list_mutex_);
+SocketPair* SocketPairManager::GetPointer(int s) {
+    std::lock_guard<std::mutex> lock(list_mutex_);
     for (const auto& item : socket_list_) {
         if (item.second->this_side_ == s || item.second->other_side_ == s)
             return item.second;
@@ -46,7 +55,6 @@ std::shared_ptr<SocketPair> SocketPairManager::GetPointer(int s) {
 // set reserved_list_[0] && reserved_list_[2] as a group
 
 IPoller* SocketPairManager::GetConnPoller(SocketPair* pair) {
-    // std::unique_lock<std::mutex> lock(conn_mutex_);
     if (pair->this_poller_ == nullptr) {
         LOG("[SocketPairManager::GetConnPoller] last_poller_index_: %d %d", pair->this_side_, last_poller_index_);
         pair->this_poller_ = EPoller::reserved_list_[last_poller_index_ + 1];

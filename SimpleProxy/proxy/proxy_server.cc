@@ -16,18 +16,7 @@ void ProxyServer::OnReadable(int s) {
         return;
     }
 
-    auto pair = std::make_shared<SocketPair>(client.sin_port);
-    pair->this_side_ = new_socket;
-    pair->authentified_ = 0;
-
-    auto result = SocketPairManager::GetConnPoller(pair.get())->AddSocket(new_socket, EPOLLIN);
-    SocketPairManager::AddPair(client.sin_port, std::move(pair)); // If ConnPoller::OnReadable() is called before this line, the socket pair will not found.
-    if (!result.ok()) {
-        LOG("[ProxyServer] Failed to add event");
-        close(new_socket);
-        SocketPairManager::RemovePair(pair.get());
-        return;
-    }
+    SocketPairManager::AddPair(client.sin_port, new_socket);
     LOG("\n[ProxyServer] OnReadable: %d", new_socket);
     return;
 }

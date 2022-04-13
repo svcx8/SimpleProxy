@@ -7,8 +7,10 @@
 
 std::map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
 static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
+static std::mutex allocate_mutex{};
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
+    std::lock_guard<std::mutex> lock(allocate_mutex);
     if (buffer_array_[s] == nullptr) {
         buffer_array_[s] = static_cast<MemoryBuffer*>(memory_pool.Allocate());
     }

@@ -10,7 +10,7 @@
 class SocketPair {
 public:
     ~SocketPair();
-    SocketPair(int port) : port_(port) {}
+    SocketPair(int port, int s) : port_(port), this_side_(s) {}
     IPoller* this_poller_ = nullptr;
     IPoller* other_poller_ = nullptr;
     int port_ = 0;
@@ -24,15 +24,15 @@ class SocketPairManager {
     friend class SocketPair;
 
 public:
-    static void AddPair(int port, std::shared_ptr<SocketPair>&& pair);
+    static void AddPair(int port, int s);
     static void RemovePair(SocketPair* pair);
-    static std::shared_ptr<SocketPair> GetPointer(int);
+    static SocketPair* GetPointer(int);
 
     static IPoller* GetConnPoller(SocketPair* pair);
     static IPoller* GetClientPoller(SocketPair* pair);
 
 private:
-    static std::map<int, std::shared_ptr<SocketPair>> socket_list_; // Set the client port as index.
+    static std::map<int, SocketPair*> socket_list_; // Set the client port as index.
     static std::mutex list_mutex_;
     static int last_poller_index_;
 };
