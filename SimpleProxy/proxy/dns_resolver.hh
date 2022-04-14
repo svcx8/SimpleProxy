@@ -11,7 +11,7 @@
 
 namespace DNSResolver {
     absl::StatusOr<sockaddr*> Resolve(const std::string& domain);
-    absl::StatusOr<sockaddr_in*> ResolveDoH(const std::string& domain);
+    absl::StatusOr<sockaddr*> ResolveDoH(const std::string& domain);
 } // namespace DNSResolver
 
 #endif // dns_resolver.hh

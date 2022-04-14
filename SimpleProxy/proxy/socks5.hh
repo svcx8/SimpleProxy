@@ -34,10 +34,6 @@ public:
 
     unsigned char* head_buffer_;
     Socks5Command(void* buffer);
-    ~Socks5Command() {
-        if (sock_addr_)
-            delete sock_addr_;
-    }
     absl::Status Check();
 
     static const char reply_success[];

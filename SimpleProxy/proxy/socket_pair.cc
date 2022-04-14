@@ -27,17 +27,18 @@ void SocketPairManager::AddPair(int port, int s) {
 
 void SocketPairManager::RemovePair(SocketPair* pair) {
     std::lock_guard<std::mutex> lock(list_mutex_);
+    if (pair != nullptr) {
+        pair->this_poller_->RemoveSocket(pair->this_side_).IgnoreError();
+        close(pair->this_side_);
 
-    pair->this_poller_->RemoveSocket(pair->this_side_).IgnoreError();
-    close(pair->this_side_);
+        if (pair->other_poller_) {
+            pair->other_poller_->RemoveSocket(pair->other_side_).IgnoreError();
+            close(pair->other_side_);
+        }
 
-    if (pair->other_poller_) {
-        pair->other_poller_->RemoveSocket(pair->other_side_).IgnoreError();
-        close(pair->other_side_);
+        SocketPairManager::socket_list_.erase(pair->port_);
+        delete pair;
     }
-
-    SocketPairManager::socket_list_.erase(pair->port_);
-    delete pair;
 }
 
 SocketPair* SocketPairManager::GetPointer(int s) {

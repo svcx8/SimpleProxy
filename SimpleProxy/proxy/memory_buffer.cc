@@ -18,6 +18,7 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
 }
 
 void MemoryBuffer::RemovePool(SocketPair* pair) {
+    std::lock_guard<std::mutex> lock(allocate_mutex);
     MemoryBuffer*& pool_1 = buffer_array_[pair->this_side_];
     if (pool_1) {
         pool_1->start_ = pool_1->end_ = 0;

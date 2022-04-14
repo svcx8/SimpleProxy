@@ -43,19 +43,18 @@ absl::Status Socks5Command::Check() {
         index += domain_len;
         address_type_ = 0x01;
 
+        absl::StatusOr<sockaddr*> result;
         if (Configuration::enable_doh_) {
-            auto result = DNSResolver::ResolveDoH(domain);
-            if (!result.ok()) {
-                return result.status();
-            }
-            sock_addr_ = reinterpret_cast<sockaddr*>(*result);
+            result = DNSResolver::ResolveDoH(domain);
+
         } else {
-            auto result = DNSResolver::Resolve(domain);
-            if (!result.ok()) {
-                return result.status();
-            }
-            sock_addr_ = *result;
+            result = DNSResolver::Resolve(domain);
         }
+        if (!result.ok()) {
+            return result.status();
+        }
+
+        sock_addr_ = *result;
         sock_addr_len_ = sizeof(sockaddr_in);
         reinterpret_cast<sockaddr_in*>(sock_addr_)->sin_port = *(short int*)&head_buffer_[index];
     }
