@@ -2,15 +2,11 @@
 #define PROXY_CONN_HEADER
 
 #include "dispatcher/ipoller.hh"
-#include "socket_pair.hh"
 
 class ProxyConn : public IBusinessEvent {
 public:
-    void OnReadable(int) override;
-    void OnWritable(int) override;
-
-private:
-    absl::Status CheckSocks5Handshake(SocketPair*);
+    void OnReadable(uintptr_t) override;
+    void OnWritable(uintptr_t) override;
 };
 
 #endif // proxy_conn.hh

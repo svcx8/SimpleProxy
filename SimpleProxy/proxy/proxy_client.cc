@@ -13,11 +13,6 @@
 #include <absl/status/status.h>
 
 /*
-    ClientSocket->recv(); // Recv from server.
-    ClientSocket->send(); // Send to server.
-*/
-
-/*
     There has some plans to use TokenBucket to limit the speed of download.
 
     1) if(token_bucket_->consure()) {
@@ -55,35 +50,30 @@
         Socket Send Buffer              Not Full             High Level(Triggered)
 */
 
-// Receiving from Server. | Download | EPOLLIN
-void ProxyClient::OnReadable(int s) {
-    auto pair = SocketPairManager::GetPointer(s);
-    if (!pair) {
-        return;
-    }
+void ProxyClient::OnReadable(uintptr_t s) {
+    auto pair = reinterpret_cast<SocketPair*>(s);
 
-    if (auto buffer_pool = MemoryBuffer::GetPool(s)) {
-        auto result = buffer_pool->Receive(s);
+    if (auto recv_from_server_pool = MemoryBuffer::GetPool(pair->client_socket_)) {
+        auto result = recv_from_server_pool->RecvFromServer(pair->client_socket_); // [data race issue] When use this buffer_pool to recv data from server,
+                                                                                   // the proxy_conn#155 uses the same buffer_pool to send to client.
+                                                                                   // But i think this is a bug from ThreadSanitizer.
 
         if (result.ok()) {
-            // auto wait_time = pair->token_bucket_.get()->Consume(*recv_res);
-            // if (wait_time.count() > 0) {
-            //     std::thread(&TokenBucket::GenerateToken, pair->token_bucket_.get(), poller_, pair->other_side_, wait_time).detach();
-            //     return absl::OkStatus();
-            // }
-            result.Update(buffer_pool->Send(pair->this_side_));
+            result.Update(recv_from_server_pool->ProxyClient_SendToClient(pair->conn_socket_));
         }
 
         if (!result.ok()) {
             if (result.code() != absl::StatusCode::kResourceExhausted) {
-                SocketPairManager::RemovePair(pair);
+                SocketPairManager::RemovePair(pair); // TODO: [data race issue] When connection reset by client,
+                                                     // the proxy_conn.cc#122 still reading from client,
+                                                     // and the proxy_conn.cc#125 trying to send to proxy.
                 return;
             } else {
                 result = absl::OkStatus();
                 // The buffer of client cannot receive more data, add to poller.
                 // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
-                result.Update(poller_->RemoveSocket(pair->other_side_));
-                result.Update(pair->this_poller_->ModSocket(pair->this_side_, EPOLLOUT));
+                result.Update(poller_->RemoveSocket(pair->client_socket_));
+                result.Update(pair->conn_poller_->ModSocket(pair->conn_socket_, s, EPOLLOUT));
 
                 if (!result.ok()) {
                     // TODO
@@ -93,49 +83,43 @@ void ProxyClient::OnReadable(int s) {
     }
 }
 
-// Sending to Server. | Upload | EPOLLOUT
-void ProxyClient::OnWritable(int s) {
-    auto pair = SocketPairManager::GetPointer(s);
-    if (!pair) {
-        return;
-    }
+void ProxyClient::OnWritable(uintptr_t s) {
+    auto pair = reinterpret_cast<SocketPair*>(s);
 
-    if (auto buffer_pool = MemoryBuffer::GetPool(pair->this_side_)) {
+    if (auto recv_from_client_pool = MemoryBuffer::GetPool(pair->conn_socket_)) {
         if (pair->authentified_ == 2) {
             int socket_error = 0;
             socklen_t socket_error_len = sizeof(socket_error);
-            if (getsockopt(pair->other_side_, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len) < 0) {
+            if (getsockopt(pair->client_socket_, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len) < 0) {
                 return;
             }
 
             if (socket_error != 0) {
-                send(pair->this_side_, Socks5Command::reply_failure, 10, 0);
+                send(pair->conn_socket_, Socks5Command::reply_failure, 10, 0);
                 SocketPairManager::RemovePair(pair);
                 return;
             }
 
-            auto result = poller_->ModSocket(pair->other_side_, EPOLLIN);
+            pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLIN).IgnoreError();
 
-            if (send(pair->this_side_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
+            if (send(pair->conn_socket_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
                 SocketPairManager::RemovePair(pair);
                 return;
             }
-
-            // pair->token_bucket_ = std::make_unique<TokenBucket>(Configuration::fill_period_,
-            //                                                     Configuration::fill_tick_,
-            //                                                     Configuration::capacity_);
             pair->authentified_++;
             return;
-        } else {
-            auto result = buffer_pool->Send(pair->other_side_);
+        }
+
+        else {
+            auto result = recv_from_client_pool->ProxyClient_SendToServer(pair->client_socket_);
             if (!result.ok()) {
                 SocketPairManager::RemovePair(pair);
                 return;
             }
             // Remove EPOLLOUT event after the buffer is empty.
-            if (buffer_pool->Usage() == 0) {
-                result.Update(pair->this_poller_->ModSocket(pair->this_side_, EPOLLIN));
-                result.Update(poller_->AddSocket(pair->other_side_, EPOLLIN));
+            if (recv_from_client_pool->Usage() == 0) {
+                result.Update(pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLIN));
+                result.Update(pair->conn_poller_->AddSocket(pair->conn_socket_, s, EPOLLIN));
             }
 
             if (!result.ok()) {

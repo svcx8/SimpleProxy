@@ -56,14 +56,13 @@ include_directories(
 # 将源代码添加到此项目的可执行文件。
 aux_source_directory(. program_src)
 aux_source_directory(${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/server server_src)
-aux_source_directory(${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/limiter limiter_src)
 aux_source_directory(${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/misc misc_src)
+aux_source_directory(${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/xdl xdl_src)
 aux_source_directory(${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/third/cpr/cpr/ cpr_src)
 
 add_executable (Proxy
     ${program_src}
     ${server_src}
-    ${limiter_src}
     ${misc_src}
     ${cpr_src}
 )

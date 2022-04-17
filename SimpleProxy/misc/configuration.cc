@@ -48,7 +48,7 @@ int Configuration::port_ = 2333;
 bool Configuration::enable_doh_ = false;
 std::string Configuration::doh_server_{ "https://doh.pub/dns-query" };
 
-Configuration::Configuration() {
+void Configuration::Init() {
     auto result = LoadJsonFromFile("proxy.json");
     if (result.ok()) {
         Document& doc = *result;
@@ -63,17 +63,5 @@ Configuration::Configuration() {
         if (auto itr = doc.FindMember("DoHServer"); itr != doc.MemberEnd() && itr->value.IsString()) {
             doh_server_ = itr->value.GetString();
         }
-
-        // if (auto itr = doc.FindMember("BuckeFillPeriod"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
-        //     fill_period_ = itr->value.GetUint64();
-        // }
-
-        // if (auto itr = doc.FindMember("BuckeFillTick"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
-        //     fill_tick_ = itr->value.GetUint64();
-        // }
-
-        // if (auto itr = doc.FindMember("BucketCapacity"); itr != doc.MemberEnd() && itr->value.IsUint64()) {
-        //     capacity_ = itr->value.GetUint64();
-        // }
     }
 }

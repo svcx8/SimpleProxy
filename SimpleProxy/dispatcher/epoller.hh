@@ -25,14 +25,14 @@ public:
     absl::Status RemoveSocket(int s) override;
 
     void Poll() override;
-    void HandleEvents(int s, uint32_t event);
+    void HandleEvents(uintptr_t s, uint32_t event);
 
     std::array<epoll_event, MAX_EVENT_NUMBER> event_array_{};
 
     static int SetNonBlocking(int);
     static std::vector<IPoller*> reserved_list_; // SubReactor list
 
-private:
+protected:
     int epoller_inst_ = 0;
 };
 

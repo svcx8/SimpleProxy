@@ -5,7 +5,7 @@
 
 class ProxyServer : public IBusinessEvent {
 public:
-    void OnReadable(int) override;
+    void OnReadable(uintptr_t) override;
 };
 
 #endif // proxy_server.hh

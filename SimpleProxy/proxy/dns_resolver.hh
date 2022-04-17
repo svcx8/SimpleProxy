@@ -1,8 +1,6 @@
 #ifndef DNS_RESOLVER_HEADER
 #define DNS_RESOLVER_HEADER
 
-#include <netdb.h>
-
 #include "misc/net.hh"
 
 #include <string>

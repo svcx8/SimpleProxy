@@ -6,8 +6,8 @@
 
 class ProxyClient : public IBusinessEvent {
 public:
-    void OnReadable(int) override;
-    void OnWritable(int) override;
+    void OnReadable(uintptr_t) override;
+    void OnWritable(uintptr_t) override;
 };
 
 #endif // ProxyClient.hh

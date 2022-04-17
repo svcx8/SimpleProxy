@@ -1,21 +1,22 @@
 #ifndef PROXY_SOCKET_HEADER
 #define PROXY_SOCKET_HEADER
 
-#include <map>
+#include <atomic>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 
-#include "dispatcher/ipoller.hh"
+#include "poller.hh"
 
 class SocketPair {
 public:
     ~SocketPair();
-    SocketPair(int port, int s) : port_(port), this_side_(s) {}
-    IPoller* this_poller_ = nullptr;
-    IPoller* other_poller_ = nullptr;
+    SocketPair(int port, int s) : port_(port), conn_socket_(s) {}
+    ProxyPoller* conn_poller_ = nullptr;
+    ProxyPoller* client_poller_ = nullptr;
     int port_ = 0;
-    int this_side_ = 0;
-    int other_side_ = 0;
+    int conn_socket_ = 0;
+    int client_socket_ = 0;
     int authentified_ = 0;
     // std::unique_ptr<TokenBucket> token_bucket_;
 };
@@ -28,13 +29,13 @@ public:
     static void RemovePair(SocketPair* pair);
     static SocketPair* GetPointer(int);
 
-    static IPoller* GetConnPoller(SocketPair* pair);
-    static IPoller* GetClientPoller(SocketPair* pair);
+    static ProxyPoller* AcquireConnPoller(SocketPair* pair);
+    static ProxyPoller* AcquireClientPoller(SocketPair* pair);
 
 private:
-    static std::map<int, SocketPair*> socket_list_; // Set the client port as index.
+    static std::unordered_map<int, SocketPair*> socket_list_; // Set the client port as index.
     static std::mutex list_mutex_;
-    static int last_poller_index_;
+    static std::atomic<int> last_poller_index_;
 };
 
 #endif // socket_pair.hh

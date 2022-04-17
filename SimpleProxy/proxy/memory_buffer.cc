@@ -7,10 +7,10 @@
 
 std::map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
 static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
-static std::mutex allocate_mutex{};
+std::mutex MemoryBuffer::allocate_mutex_;
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
-    std::lock_guard<std::mutex> lock(allocate_mutex);
+    std::lock_guard<std::mutex> lock(allocate_mutex_);
     if (buffer_array_[s] == nullptr) {
         buffer_array_[s] = static_cast<MemoryBuffer*>(memory_pool.Allocate());
     }
@@ -18,15 +18,15 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
 }
 
 void MemoryBuffer::RemovePool(SocketPair* pair) {
-    std::lock_guard<std::mutex> lock(allocate_mutex);
-    MemoryBuffer*& pool_1 = buffer_array_[pair->this_side_];
+    std::lock_guard<std::mutex> lock(allocate_mutex_);
+    MemoryBuffer*& pool_1 = buffer_array_[pair->conn_socket_];
     if (pool_1) {
         pool_1->start_ = pool_1->end_ = 0;
         memory_pool.Revert(pool_1);
         pool_1 = nullptr;
     }
 
-    MemoryBuffer*& pool_2 = buffer_array_[pair->other_side_];
+    MemoryBuffer*& pool_2 = buffer_array_[pair->client_socket_];
     if (pool_2) {
         pool_2->start_ = pool_2->end_ = 0;
         memory_pool.Revert(pool_2);
@@ -42,7 +42,6 @@ absl::Status MemoryBuffer::Receive(int s) {
 
     else if (recv_len == 0) {
         if (end_ == MemoryBuffer::buffer_size_) {
-            LOG("[" LINE_FILE "] [%d] buffer full, %s", s, strerror(errno));
             return absl::ResourceExhaustedError("Buffer full.");
         }
         return absl::CancelledError("The socket was closed.");
@@ -50,10 +49,8 @@ absl::Status MemoryBuffer::Receive(int s) {
 
     else {
         if (errno == EAGAIN) {
-            LOG("[" LINE_FILE "] [%d] EAGAIN: %s", s, strerror(errno));
             return absl::ResourceExhaustedError(strerror(errno));
         } else {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
             return absl::InternalError(strerror(errno));
         }
     }
@@ -76,10 +73,8 @@ absl::Status MemoryBuffer::Send(int s) {
 
     else if (send_len < 0) {
         if (errno == EAGAIN) {
-            LOG("[" LINE_FILE "] [%d] EAGAIN: %s", s, strerror(errno));
             return absl::ResourceExhaustedError(strerror(errno));
         } else {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
             return absl::InternalError(strerror(errno));
         }
     }

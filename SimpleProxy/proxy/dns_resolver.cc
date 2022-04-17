@@ -1,6 +1,7 @@
 #include "dns_resolver.hh"
 
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include <unordered_map>
 
@@ -89,30 +90,24 @@ public:
 static LRUCache* cache_ = new LRUCache(128);
 
 absl::StatusOr<sockaddr*> DNSResolver::Resolve(const std::string& domain) {
-    auto res = cache_->Get(domain);
-    if (res) {
-        LOG("[Native] domain: %s cache hit", domain.c_str());
-        return res;
-    } else {
-        LOG("[Native] domain: %s cache missing", domain.c_str());
-        struct addrinfo hints;
-        struct addrinfo* result;
+    LOG("[Native] domain: %s", domain.c_str());
+    struct addrinfo hints;
+    struct addrinfo* result;
 
-        memset(&hints, 0, sizeof(struct addrinfo));
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_protocol = 0;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = 0;
 
-        if (getaddrinfo(domain.c_str(), nullptr, &hints, &result) != 0) {
-            return absl::InternalError("Cannot resolve this domain.");
-        }
-
-        sockaddr* ia = new sockaddr();
-        memcpy(ia, result->ai_addr, sizeof(sockaddr));
-        freeaddrinfo(result);
-        cache_->Put(domain, ia);
-        return ia;
+    if (getaddrinfo(domain.c_str(), nullptr, &hints, &result) != 0) {
+        return absl::InternalError("Cannot resolve this domain.");
     }
+
+    sockaddr* ia = new sockaddr();
+    memcpy(ia, result->ai_addr, sizeof(sockaddr));
+    freeaddrinfo(result);
+    cache_->Put(domain, ia);
+    return ia;
 }
 
 absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {

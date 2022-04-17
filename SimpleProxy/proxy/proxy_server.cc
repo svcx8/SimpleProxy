@@ -7,7 +7,7 @@
 #include "misc/net.hh"
 #include "socket_pair.hh"
 
-void ProxyServer::OnReadable(int s) {
+void ProxyServer::OnReadable(uintptr_t s) {
     sockaddr_in client;
     socklen_t len = sizeof(client);
     int new_socket = accept(s, (sockaddr*)&client, &len);
