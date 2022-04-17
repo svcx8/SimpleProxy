@@ -11,10 +11,12 @@ std::mutex MemoryBuffer::allocate_mutex_;
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
     std::lock_guard<std::mutex> lock(allocate_mutex_);
-    if (buffer_array_[s] == nullptr) {
-        buffer_array_[s] = static_cast<MemoryBuffer*>(memory_pool.Allocate());
+    auto ptr = buffer_array_[s];
+    if (ptr == nullptr) {
+        ptr = reinterpret_cast<MemoryBuffer*>(memory_pool.Allocate());
+        buffer_array_[s] = ptr;
     }
-    return buffer_array_[s];
+    return ptr;
 }
 
 void MemoryBuffer::RemovePool(SocketPair* pair) {

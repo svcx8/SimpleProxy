@@ -33,26 +33,8 @@ public:
         tail_->prev_ = head_;
     }
 
-    void MoveToHead(Node* cur) {
-        Node* next = head_->next_;
-        head_->next_ = cur;
-        cur->prev_ = head_;
-        next->prev_ = cur;
-        cur->next_ = next;
-    }
-
-    Node* DeleteCurrNode(Node* cur) {
-        cur->prev_->next_ = cur->next_;
-        cur->next_->prev_ = cur->prev_;
-        return cur;
-    }
-
-    void MakeRecently(Node* cur) {
-        Node* temp = DeleteCurrNode(cur);
-        MoveToHead(temp);
-    }
-
     sockaddr* Get(std::string key) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (cached_map_.count(key)) {
             Node* temp = cached_map_[key];
             MakeRecently(temp);
@@ -62,6 +44,7 @@ public:
     }
 
     void Put(std::string key, sockaddr* value) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (cached_map_.count(key)) {
 
             Node* temp = cached_map_[key];
@@ -81,10 +64,31 @@ public:
         }
     }
 
+private:
+    void MoveToHead(Node* cur) {
+        Node* next = head_->next_;
+        head_->next_ = cur;
+        cur->prev_ = head_;
+        next->prev_ = cur;
+        cur->next_ = next;
+    }
+
+    Node* DeleteCurrNode(Node* cur) {
+        cur->prev_->next_ = cur->next_;
+        cur->next_->prev_ = cur->prev_;
+        return cur;
+    }
+
+    void MakeRecently(Node* cur) {
+        Node* temp = DeleteCurrNode(cur);
+        MoveToHead(temp);
+    }
+
     std::unordered_map<std::string, Node*> cached_map_;
     int capacity_;
     Node* head_;
     Node* tail_;
+    std::mutex mutex_;
 };
 
 static LRUCache* cache_ = new LRUCache(128);
@@ -106,7 +110,6 @@ absl::StatusOr<sockaddr*> DNSResolver::Resolve(const std::string& domain) {
     sockaddr* ia = new sockaddr();
     memcpy(ia, result->ai_addr, sizeof(sockaddr));
     freeaddrinfo(result);
-    cache_->Put(domain, ia);
     return ia;
 }
 
@@ -115,7 +118,9 @@ absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
     if (res) {
         LOG("[DoH] domain: %s cache hit", domain.c_str());
         return res;
-    } else {
+    }
+
+    else {
         LOG("[DoH] domain: %s cache missing", domain.c_str());
         Response r = Get(Url{ Configuration::doh_server_ },
                          Header{ { "accept", "application/json" } },
@@ -140,6 +145,7 @@ absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
                                 const char* ip = data->value.GetString();
                                 sockaddr* sa = new sockaddr();
                                 inet_pton(AF_INET, ip, &sa->sa_data[2]);
+                                cache_->Put(domain, sa);
                                 return sa;
                             }
                         }

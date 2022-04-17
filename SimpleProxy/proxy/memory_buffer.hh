@@ -11,6 +11,26 @@
 
 class MemoryBuffer {
 public:
+    /*
+        FreeChunk* Allocate();
+
+        class FreeChunk {
+            public:
+                FreeChunk* next_ = nullptr;
+                char data_[size];
+            };
+        }
+
+        static_cast<MemoryBuffer*>(Allocate());
+
+        // I don't know why it is worked before, but this is definitely a BUG.
+    */
+    constexpr static int buffer_size_ = 409600;
+    uintptr_t reserved_;
+    unsigned char buffer_[buffer_size_];
+    int start_;
+    int end_;
+
     int Usage() {
         return end_ - start_;
     }
@@ -64,12 +84,6 @@ public:
     static void RemovePool(SocketPair* pair);
 
 private:
-    int start_ = 0;
-    int end_ = 0;
-
-    constexpr static int buffer_size_ = 409600;
-    unsigned char buffer_[buffer_size_];
-
     static std::mutex allocate_mutex_;
 
     absl::Status Receive(int s);
