@@ -18,7 +18,7 @@ void ErrorHandler(SocketPair* pair) {
     if (pair->authentified_ == 1) {
         int res = send(pair->conn_socket_, Socks5Command::reply_failure, 10, 0);
         if (res == SOCKET_ERROR) {
-            LOG("[ErrorHandler] %s", strerror(errno));
+            ERROR("[ErrorHandler] %s", strerror(errno));
         }
     }
 
@@ -26,10 +26,11 @@ void ErrorHandler(SocketPair* pair) {
 }
 
 absl::Status CheckSocks5Handshake(SocketPair* pair) {
-    char head_buf[256];
-    int recv_len = recv(pair->conn_socket_, head_buf, 256, 0);
+    char head_buf[128]{};
+    int recv_len = recv(pair->conn_socket_, head_buf, 128, 0);
     if (recv_len == SOCKET_ERROR) {
         ErrorHandler(pair);
+        ERROR("[CheckSocks5Handshake] [t#%d] [%d] %s", gettid(), pair->conn_socket_, strerror(errno));
         return absl::InternalError(strerror(errno));
     }
 
@@ -38,6 +39,7 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         Socks5Header head(head_buf);
         if (!head.Check()) {
             ErrorHandler(pair);
+            ERROR("[CheckSocks5Handshake] [t#%d] [%d] check head: Unsupported version or methods.", gettid(), pair->conn_socket_);
             return absl::InternalError("Unsupported version or methods.");
         }
         short int return_ver = 0x0005;
@@ -53,7 +55,7 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         Socks5Command command(head_buf);
         auto result = command.Check();
         if (!result.ok()) {
-            LOG("[CheckSocks5Handshake] [%d] check command: %.*s", pair->conn_socket_, (int)result.message().size(), result.message().data());
+            ERROR("[CheckSocks5Handshake] [t#%d] [%d] check command: %.*s", gettid(), pair->conn_socket_, (int)result.message().size(), result.message().data());
             ErrorHandler(pair);
             return result;
         }
@@ -107,7 +109,7 @@ void ProxyConn::OnReadable(uintptr_t s) {
     if (pair->authentified_ < 2) {
         auto result = CheckSocks5Handshake(pair);
         if (!result.ok()) {
-            LOG("[ProxyConn] [%d] check handshake step %d : %.*s", pair->authentified_, pair->conn_socket_, (int)result.message().size(), result.message().data());
+            // TODO
         }
     }
 

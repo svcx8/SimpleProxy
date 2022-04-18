@@ -44,7 +44,7 @@ private:
     class FreeChunk {
     public:
         FreeChunk* next_ = nullptr;
-        char data_[size];
+        char data_[size]{};
     };
     FreeChunk* free_chunk_header_ = nullptr;
 

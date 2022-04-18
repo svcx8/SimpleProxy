@@ -3,10 +3,9 @@
 #include "dispatcher/epoller.hh"
 #include "memory_buffer.hh"
 #include "misc/logger.hh"
-#include <stdint.h>
 
 std::unordered_map<int, SocketPair*> SocketPairManager::socket_list_;
-std::mutex SocketPairManager::list_mutex_;
+std::shared_mutex SocketPairManager::list_mutex_;
 std::atomic<int> SocketPairManager::last_poller_index_ = 1;
 
 SocketPair::~SocketPair() {
@@ -14,9 +13,10 @@ SocketPair::~SocketPair() {
 }
 
 void SocketPairManager::AddPair(int port, int s) {
+    std::lock_guard<std::shared_mutex> lock(list_mutex_);
     auto pair = new SocketPair(port, s);
     socket_list_[port] = pair;
-    LOG("[AddPair] [t#%d] port: %d socket: %d pair: %p", gettid(), port, s, pair);
+    LOG("[AddPair] [t#%d] port: %d | socket: %d %d | pair: %p", gettid(), port, pair->conn_socket_, pair->client_socket_, pair);
     auto result = SocketPairManager::AcquireConnPoller(pair)->AddSocket(s,
                                                                         reinterpret_cast<uintptr_t>(pair),
                                                                         EPOLLIN);
@@ -28,8 +28,8 @@ void SocketPairManager::AddPair(int port, int s) {
 }
 
 void SocketPairManager::RemovePair(SocketPair* pair) {
-    std::lock_guard<std::mutex> lock(list_mutex_);
-    if (pair != nullptr && pair->conn_socket_) {
+    std::lock_guard<std::shared_mutex> lock(list_mutex_);
+    if (pair != nullptr && socket_list_.find(pair->port_) != socket_list_.end()) {
         LOG("[SPM] [t#%d] Remove pair: %d - %d", gettid(), pair->conn_socket_, pair->client_socket_);
 
         pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
@@ -40,7 +40,7 @@ void SocketPairManager::RemovePair(SocketPair* pair) {
             close(pair->client_socket_);
         }
 
-        SocketPairManager::socket_list_.erase(pair->port_);
+        socket_list_.erase(pair->port_);
         pair->conn_socket_ = 0;
         delete pair;
     }
@@ -51,7 +51,6 @@ void SocketPairManager::RemovePair(SocketPair* pair) {
 // set reserved_list_[0] && reserved_list_[2] as a group
 
 ProxyPoller* SocketPairManager::AcquireConnPoller(SocketPair* pair) {
-    LOG("[SPM] [AcquireConnPoller] %d %d idx: %d", pair->conn_socket_, pair->client_socket_, last_poller_index_.load());
     pair->conn_poller_ = reinterpret_cast<ProxyPoller*>(EPoller::reserved_list_[last_poller_index_ + 1]);
     last_poller_index_ = last_poller_index_ % 2 + 1;
     /*

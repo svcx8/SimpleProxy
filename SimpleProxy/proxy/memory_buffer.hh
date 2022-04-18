@@ -23,13 +23,13 @@ public:
 
         static_cast<MemoryBuffer*>(Allocate());
 
-        // I don't know why it is worked before, but this is definitely a BUG.
+        // ~~~I don't know why it is worked before, but this is definitely a BUG.~~~
+        // Not a bug, just a feature.
     */
     constexpr static int buffer_size_ = 409600;
-    uintptr_t reserved_;
-    unsigned char buffer_[buffer_size_];
-    int start_;
-    int end_;
+    unsigned char buffer_[buffer_size_]; // -> FreeChunk* next_, that's ok because no more read it.
+    int start_;                          // -> store in &buffer_[sizeof(next_)]
+    int end_;                            // -> store in &buffer_[sizeof(next_) + sizeof(start_)]
 
     int Usage() {
         return end_ - start_;

@@ -131,7 +131,7 @@ absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
         }
         Document doc;
         if (doc.Parse(r.text.c_str()).HasParseError()) {
-            LOG("Parse error: %s %zu", GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
+            ERROR("Parse error: %s %zu", GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
             return absl::InternalError("Json parse error.");
         }
         if (auto itr = doc.FindMember("Answer"); itr != doc.MemberEnd() && itr->value.IsArray()) {

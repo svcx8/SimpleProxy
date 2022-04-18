@@ -12,7 +12,7 @@ void ProxyServer::OnReadable(uintptr_t s) {
     socklen_t len = sizeof(client);
     int new_socket = accept(s, (sockaddr*)&client, &len);
     if (new_socket == SOCKET_ERROR) {
-        ERROR("[ProxyServer] Failee to accept: %s", strerror(errno));
+        ERROR("[ProxyServer] Failed to accept: %s", strerror(errno));
         return;
     }
 

@@ -3,7 +3,7 @@
 
 #include <atomic>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 #include "poller.hh"
@@ -34,7 +34,7 @@ public:
 
 private:
     static std::unordered_map<int, SocketPair*> socket_list_; // Set the client port as index.
-    static std::mutex list_mutex_;
+    static std::shared_mutex list_mutex_;
     static std::atomic<int> last_poller_index_;
 };
 
