@@ -9,7 +9,7 @@
 
 std::vector<IPoller*> EPoller::reserved_list_;
 
-EPoller::EPoller(IBusinessEvent* business, int _id) : id_(_id) {
+EPoller::EPoller(IBusinessEvent* business) {
     epoller_inst_ = epoll_create1(0);
     op_ = business;
     op_->poller_ = reinterpret_cast<IPoller*>(this);

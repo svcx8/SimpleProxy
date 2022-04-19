@@ -1,6 +1,8 @@
 #ifndef PROXY_SOCKET_HEADER
 #define PROXY_SOCKET_HEADER
 
+#include <sys/socket.h>
+
 #include <atomic>
 #include <memory>
 #include <shared_mutex>
@@ -18,7 +20,8 @@ public:
     int conn_socket_ = 0;
     int client_socket_ = 0;
     int authentified_ = 0;
-    // std::unique_ptr<TokenBucket> token_bucket_;
+    sockaddr_storage tcp_auth_addr_;
+    int tcp_auth_addr_len_ = 0;
 };
 
 class SocketPairManager {

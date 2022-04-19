@@ -1,11 +1,13 @@
 #include <thread>
 
+#include "proxy/udp_server.hh"
 #include "signal.h"
 
 #include "dispatcher/epoller.hh"
 #include "misc/configuration.hh"
 #include "misc/logger.hh"
 #include "poller.hh"
+#include "proxy/udp_associate.hh"
 #include "proxy_client.hh"
 #include "proxy_conn.hh"
 #include "proxy_server.hh"
@@ -29,31 +31,45 @@ int main() {
     signal(SIGPIPE, signal_callback_handler);
 
     Configuration::Init();
-    auto result = Server::Start(Configuration::port_);
-    if (!result.ok()) {
-        ERROR("%.*s", (int)result.message().size(), result.message().data());
+    // ********** Create TCP Listener **********
+    auto tcp_rsp = Server::CreateTCPServer(Configuration::port_);
+    if (!tcp_rsp.ok()) {
+        ERROR("%s", tcp_rsp.status().ToString().c_str());
         return -1;
     }
-    EPoller* server_poller = new EPoller(new ProxyServer(), 99);
+    
+    int tcp_server_socket = std::get<0>(tcp_rsp.value());
+
+    EPoller* tcp_server_poller = new EPoller(new ProxyServer());
     constexpr long flags = EPOLLIN;
 
-    result = server_poller->AddSocket(Server::server_socket_, flags);
+    auto result = tcp_server_poller->AddSocket(tcp_server_socket, flags);
     if (!result.ok()) {
-        ERROR("%.*s", (int)result.message().size(), result.message().data());
+        ERROR("%s", tcp_rsp.status().ToString().c_str());
         return -1;
     }
+    // ********** Create TCP Listener **********
 
-    IPoller* client_poller_1 = new ProxyPoller(new ProxyClient(), 0);
+    // ********** Create UDP Listener **********
+    if (UDPHandler::Init4() == false && UDPHandler::Init6() == false) {
+        ERROR("[main] Init UDP failed.");
+    }
+    ProxyPoller* udp_server_poller = new ProxyPoller(new UDPServer());
+    // ********** Create UDP Listener **********
+
+    IPoller* client_poller_1 = new ProxyPoller(new ProxyClient());
     EPoller::reserved_list_.push_back(client_poller_1);
 
-    IPoller* client_poller_2 = new ProxyPoller(new ProxyClient(), 1);
+    IPoller* client_poller_2 = new ProxyPoller(new ProxyClient());
     EPoller::reserved_list_.push_back(client_poller_2);
 
-    IPoller* conn_poller_1 = new ProxyPoller(new ProxyConn(), 2);
+    IPoller* conn_poller_1 = new ProxyPoller(new ProxyConn());
     EPoller::reserved_list_.push_back(conn_poller_1);
 
-    IPoller* conn_poller_2 = new ProxyPoller(new ProxyConn(), 3);
+    IPoller* conn_poller_2 = new ProxyPoller(new ProxyConn());
     EPoller::reserved_list_.push_back(conn_poller_2);
+
+    EPoller::reserved_list_.push_back(udp_server_poller);
 
     std::thread([&] {
         LOG("[#%d] conn_poller_1", gettid());
@@ -83,8 +99,15 @@ int main() {
         }
     }).detach();
 
+    std::thread([&] {
+        LOG("[#%d] udp_poller", gettid());
+        while (true) {
+            udp_server_poller->Poll();
+        }
+    }).detach();
+
     LOG("[#%d] server_poller", gettid());
     while (true) {
-        server_poller->Poll();
+        tcp_server_poller->Poll();
     }
 }

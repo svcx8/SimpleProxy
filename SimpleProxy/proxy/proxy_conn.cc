@@ -8,7 +8,9 @@
 #include "misc/configuration.hh"
 #include "misc/logger.hh"
 #include "misc/net.hh"
+#include "proxy/poller.hh"
 #include "proxy/socket_pair.hh"
+#include "proxy/udp_associate.hh"
 #include "proxy_client.hh"
 #include "socks5.hh"
 
@@ -55,7 +57,7 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         Socks5Command command(head_buf);
         auto result = command.Check();
         if (!result.ok()) {
-            ERROR("[CheckSocks5Handshake] [t#%d] [%d] check command: %.*s", gettid(), pair->conn_socket_, (int)result.message().size(), result.message().data());
+            ERROR("[CheckSocks5Handshake] [t#%d] [%d] check command: %s", gettid(), pair->conn_socket_, result.ToString().c_str());
             ErrorHandler(pair);
             return result;
         }
@@ -75,31 +77,44 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         }
 #endif
 
-        pair->client_socket_ = socket(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_family,
-                                      SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+        if (command.command_ == 0x1) {
+            // TCP CONNECT
+            pair->client_socket_ = socket(reinterpret_cast<sockaddr_in*>(command.sock_addr_)->sin_family,
+                                          SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 
-        if (pair->client_socket_ == SOCKET_ERROR) {
-            ErrorHandler(pair);
-            return absl::InternalError(strerror(errno));
-        }
-
-        // Connect to server.
-        if (connect(pair->client_socket_, command.sock_addr_, command.sock_addr_len_) == SOCKET_ERROR) {
-            if (errno != EINPROGRESS) {
+            if (pair->client_socket_ == SOCKET_ERROR) {
                 ErrorHandler(pair);
                 return absl::InternalError(strerror(errno));
             }
+
+            // Connect to server.
+            if (connect(pair->client_socket_, command.sock_addr_, command.sock_addr_len_) == SOCKET_ERROR) {
+                if (errno != EINPROGRESS) {
+                    ErrorHandler(pair);
+                    return absl::InternalError(strerror(errno));
+                }
+            }
+
+            pair->authentified_++;
+            result = SocketPairManager::AcquireClientPoller(pair)->AddSocket(pair->client_socket_,
+                                                                             reinterpret_cast<uintptr_t>(pair),
+                                                                             EPOLLOUT);
+            if (!result.ok()) {
+                ErrorHandler(pair);
+                return absl::InternalError("[ProxyConn] Failed to add event.");
+            }
         }
 
-        pair->authentified_++;
-        result = SocketPairManager::AcquireClientPoller(pair)->AddSocket(pair->client_socket_,
-                                                                         reinterpret_cast<uintptr_t>(pair),
-                                                                         EPOLLOUT);
-        if (!result.ok()) {
-            ErrorHandler(pair);
-            return absl::InternalError("[ProxyConn] Failed to add event.");
+        else if (command.command_ == 0x3) {
+            // UDP ASSOCIATE
+            if (UDPHandler::ReplyHandshake(pair).ok()) {
+                pair->authentified_ = 4;
+            } else {
+                ErrorHandler(pair);
+                return absl::InternalError("[ProxyConn] Failed to reply handshake.");
+            }
         }
-    }
+    } // if (pair->authentified_ == 1)
     return absl::OkStatus();
 }
 
@@ -113,7 +128,7 @@ void ProxyConn::OnReadable(uintptr_t s) {
         }
     }
 
-    else {
+    else if (pair->authentified_ < 4) {
         // Receiving from Client, e.g. curl https://baidu.com
         if (auto recv_from_client_pool = MemoryBuffer::GetPool(pair->conn_socket_)) {
             auto result = recv_from_client_pool->ReceiveFromClient(pair->conn_socket_);
@@ -140,6 +155,18 @@ void ProxyConn::OnReadable(uintptr_t s) {
                     }
                 }
             }
+        }
+    }
+
+    else {
+        if (pair->authentified_ == 4) {
+            INFO("[ProxyConn] [t#%d] [%d] Remove UDP Associate.", gettid(), pair->client_socket_);
+            pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
+            close(pair->conn_socket_);
+
+            ProxyPoller* udp_poller = reinterpret_cast<ProxyPoller*>(EPoller::reserved_list_[EPoller::reserved_list_.size() - 1]);
+            udp_poller->RemoveSocket(pair->client_socket_).IgnoreError();
+            close(pair->client_socket_);
         }
     }
 }

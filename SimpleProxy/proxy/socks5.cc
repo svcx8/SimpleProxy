@@ -2,8 +2,8 @@
 
 #include <cstring>
 
-#include "dns_resolver.hh"
 #include "misc/configuration.hh"
+#include "misc/dns_resolver.hh"
 #include "misc/logger.hh"
 
 Socks5Header::Socks5Header(void* buffer) {
@@ -27,21 +27,19 @@ bool Socks5Header::Check() {
 }
 
 Socks5Command::Socks5Command(void* buffer) : head_buffer_(reinterpret_cast<unsigned char*>(buffer)) {
-    int index = 0;
-    version_ = head_buffer_[index++];
-    command_ = head_buffer_[index++];
-    reserved_ = head_buffer_[index++];
-    address_type_ = head_buffer_[index++];
+    index_ = 0;
+    version_ = head_buffer_[index_++];
+    command_ = head_buffer_[index_++];
+    reserved_ = head_buffer_[index_++];
+    address_type_ = head_buffer_[index_++];
 }
 
 absl::Status Socks5Command::Check() {
-    int index = 4;
     if (address_type_ == 0x3) {
-        int domain_len = head_buffer_[index++];
-        std::string domain((char*)&head_buffer_[index], 0, domain_len);
+        int domain_len = head_buffer_[index_++];
+        std::string domain((char*)&head_buffer_[index_], 0, domain_len);
 
-        index += domain_len;
-        address_type_ = 0x01;
+        index_ += domain_len;
 
         absl::StatusOr<sockaddr*> result;
         if (Configuration::enable_doh_) {
@@ -56,15 +54,15 @@ absl::Status Socks5Command::Check() {
 
         sock_addr_ = *result;
         sock_addr_len_ = sizeof(sockaddr_in);
-        reinterpret_cast<sockaddr_in*>(sock_addr_)->sin_port = *(short int*)&head_buffer_[index];
+        reinterpret_cast<sockaddr_in*>(sock_addr_)->sin_port = *(short int*)&head_buffer_[index_];
     }
 
     else if (address_type_ == 0x01) {
         sockaddr_in* addr_info = new sockaddr_in();
         addr_info->sin_family = AF_INET;
-        addr_info->sin_addr.s_addr = *(int32_t*)&head_buffer_[index];
-        index += 4;
-        addr_info->sin_port = *(short int*)&head_buffer_[index];
+        addr_info->sin_addr.s_addr = *(int32_t*)&head_buffer_[index_];
+        index_ += 4;
+        addr_info->sin_port = *(short int*)&head_buffer_[index_];
         sock_addr_ = reinterpret_cast<sockaddr*>(addr_info);
         sock_addr_len_ = sizeof(sockaddr_in);
     }
@@ -72,9 +70,9 @@ absl::Status Socks5Command::Check() {
     else if (address_type_ == 0x04) {
         sockaddr_in6* addr_info6 = new sockaddr_in6();
         addr_info6->sin6_family = AF_INET6;
-        std::memcpy(addr_info6->sin6_addr.s6_addr, &head_buffer_[index], 16);
-        index += 16;
-        addr_info6->sin6_port = *(short int*)&head_buffer_[index];
+        std::memcpy(addr_info6->sin6_addr.s6_addr, &head_buffer_[index_], 16);
+        index_ += 16;
+        addr_info6->sin6_port = *(short int*)&head_buffer_[index_];
         sock_addr_ = reinterpret_cast<sockaddr*>(addr_info6);
         sock_addr_len_ = sizeof(sockaddr_in6);
     }
@@ -88,9 +86,20 @@ absl::Status Socks5Command::Check() {
     if (version_ != 0x05) {
         return absl::FailedPreconditionError("Only support socks5.");
     }
-    if (command_ != 1) {
-        return absl::FailedPreconditionError("Only support tcp.");
+    if (command_ != 1 && command_ != 3) {
+        return absl::FailedPreconditionError("Only support tcp and udp.");
     }
+    return absl::OkStatus();
+}
+
+absl::Status UDPPacket::Check() {
+    auto res = command_.Check();
+    if (!res.ok()) {
+        return res;
+    }
+
+    command_.index_ += 2;
+    user_data_ = &command_.head_buffer_[command_.index_];
     return absl::OkStatus();
 }
 

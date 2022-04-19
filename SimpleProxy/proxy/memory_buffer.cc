@@ -3,9 +3,8 @@
 #include "misc/logger.hh"
 #include "misc/net.hh"
 #include "misc/simple_pool.hh"
-#include <absl/status/status.h>
 
-std::map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
+std::unordered_map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
 static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
 std::mutex MemoryBuffer::allocate_mutex_;
 
@@ -22,18 +21,14 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
 
 void MemoryBuffer::RemovePool(SocketPair* pair) {
     std::lock_guard<std::mutex> lock(allocate_mutex_);
-    MemoryBuffer*& pool_1 = buffer_array_[pair->conn_socket_];
-    if (pool_1) {
-        pool_1->start_ = pool_1->end_ = 0;
-        memory_pool.Revert(pool_1);
-        pool_1 = nullptr;
+    if (auto pool_1 = buffer_array_.find(pair->conn_socket_); pool_1 != buffer_array_.end()) {
+        memory_pool.Revert(pool_1->second);
+        buffer_array_.erase(pool_1);
     }
 
-    MemoryBuffer*& pool_2 = buffer_array_[pair->client_socket_];
-    if (pool_2) {
-        pool_2->start_ = pool_2->end_ = 0;
-        memory_pool.Revert(pool_2);
-        pool_2 = nullptr;
+    if (auto pool_2 = buffer_array_.find(pair->client_socket_); pool_2 != buffer_array_.end()) {
+        memory_pool.Revert(pool_2->second);
+        buffer_array_.erase(pool_2);
     }
 }
 

@@ -23,4 +23,9 @@
         std::printf(str "\n", ##__VA_ARGS__); \
     } while (0)
 
+#define INFO(str, ...)                        \
+    do {                                      \
+        std::printf(str "\n", ##__VA_ARGS__); \
+    } while (0)
+
 #endif

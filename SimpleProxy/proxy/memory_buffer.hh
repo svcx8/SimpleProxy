@@ -1,9 +1,10 @@
 #ifndef MEMORY_BUFFER_HEADER
 #define MEMORY_BUFFER_HEADER
 
-#include <map>
 #include <mutex>
+#include <unordered_map>
 
+#include <absl/status/status.h>
 #include <absl/status/statusor.h>
 
 #include "misc/logger.hh"
@@ -38,14 +39,14 @@ public:
     absl::Status ReceiveFromClient(int s) {
         auto&& res = Receive(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
+            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status RecvFromServer(int s) {
         auto&& res = Receive(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
+            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
@@ -53,14 +54,14 @@ public:
     absl::Status ProxyConn_SendToServer(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
+            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status ProxyClient_SendToServer(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
+            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
@@ -68,14 +69,14 @@ public:
     absl::Status ProxyConn_SendToClient(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
+            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status ProxyClient_SendToClient(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: %s", s, strerror(errno));
+            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
@@ -88,7 +89,7 @@ private:
 
     absl::Status Receive(int s);
     absl::Status Send(int s);
-    static std::map<int, MemoryBuffer*> buffer_array_;
+    static std::unordered_map<int, MemoryBuffer*> buffer_array_;
 };
 
 #endif // memory_buffer.hh

@@ -15,9 +15,7 @@ constexpr int MAX_EVENT_NUMBER = 64;
 
 class EPoller : public IPoller {
 public:
-    int id_ = 0;
-
-    EPoller(IBusinessEvent* business, int _id);
+    EPoller(IBusinessEvent* business);
     ~EPoller(){};
 
     absl::Status AddSocket(int s, long eventflags) override;

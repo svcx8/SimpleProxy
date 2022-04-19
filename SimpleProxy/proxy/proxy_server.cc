@@ -1,6 +1,5 @@
 #include "proxy_server.hh"
 
-#include <absl/memory/memory.h>
 
 #include "dispatcher/epoller.hh"
 #include "misc/logger.hh"
