@@ -13,7 +13,6 @@ MemoryBuffer* MemoryBuffer::GetPool(int s) {
     auto ptr = buffer_array_[s];
     if (ptr == nullptr) {
         ptr = reinterpret_cast<MemoryBuffer*>(memory_pool.Allocate());
-        // LOG("Allocate MemoryBuffer: %p %d %d", ptr, ptr->start_, ptr->end_);
         buffer_array_[s] = ptr;
     }
     return ptr;

@@ -160,7 +160,7 @@ void ProxyConn::OnReadable(uintptr_t s) {
 
     else {
         if (pair->authentified_ == 4) {
-            INFO("[ProxyConn] [t#%d] [%d] Remove UDP Associate.", gettid(), pair->client_socket_);
+            LOG("[ProxyConn] [t#%d] [%d] Remove UDP Associate.", gettid(), pair->client_socket_);
             pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
             close(pair->conn_socket_);
 

@@ -104,7 +104,7 @@ absl::StatusOr<sockaddr*> DNSResolver::Resolve(const std::string& domain) {
     hints.ai_protocol = 0;
 
     if (getaddrinfo(domain.c_str(), nullptr, &hints, &result) != 0) {
-        return absl::InternalError("Cannot resolve this domain.");
+        return absl::InternalError(absl::StrCat("Cannot resolve this domain: ", domain));
     }
 
     sockaddr* ia = new sockaddr();
@@ -153,6 +153,6 @@ absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
                 }
             }
         }
-        return absl::InternalError("Cannot resolve this domain.");
+        return absl::InternalError(absl::StrCat("Cannot resolve this domain: ", domain));
     }
 }

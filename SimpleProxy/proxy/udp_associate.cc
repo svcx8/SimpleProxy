@@ -59,8 +59,14 @@ absl::Status UDPHandler::ReplyHandshake(SocketPair* pair) {
         ERROR("%s", udp_rsp.status().ToString().c_str());
         return udp_rsp.status();
     }
-    int udp_server_socket = std::get<0>(*udp_rsp);
-    int udp_server_port = std::get<1>(*udp_rsp);
+
+    int udp_server_socket = *udp_rsp;
+    struct sockaddr_in sin;
+    socklen_t len = sizeof(sin);
+    if (getsockname(udp_server_socket, (struct sockaddr*)&sin, &len) == -1) {
+        return absl::InternalError(strerror(errno));
+    }
+    int udp_server_port = ntohs(sin.sin_port);
 
     ProxyPoller* udp_server_poller = reinterpret_cast<ProxyPoller*>(EPoller::reserved_list_[EPoller::reserved_list_.size() - 1]);
     auto result = udp_server_poller->AddSocket(udp_server_socket, reinterpret_cast<uintptr_t>(pair), EPOLLIN);
@@ -95,8 +101,8 @@ void UDPHandler::Forward(SocketPair* pair) {
                 pair->tcp_auth_addr_len_ = sizeof(struct sockaddr_in6);
             }
             LOG("First init. port: %d %d host: %s %s",
-                 ((sockaddr_in*)&pair->tcp_auth_addr_)->sin_port, ((sockaddr_in*)&pool->client_addr_)->sin_port,
-                 inet_ntoa(((sockaddr_in*)&pair->tcp_auth_addr_)->sin_addr), inet_ntoa(((sockaddr_in*)&pool->client_addr_)->sin_addr));
+                ((sockaddr_in*)&pair->tcp_auth_addr_)->sin_port, ((sockaddr_in*)&pool->client_addr_)->sin_port,
+                inet_ntoa(((sockaddr_in*)&pair->tcp_auth_addr_)->sin_addr), inet_ntoa(((sockaddr_in*)&pool->client_addr_)->sin_addr));
         }
 
         auto AddrEqual = [](sockaddr_storage* lhs, sockaddr_storage* rhs) {
@@ -114,8 +120,8 @@ void UDPHandler::Forward(SocketPair* pair) {
                 res.Update(pool->Send(pair->client_socket_, packet.command_.sock_addr_, packet.command_.sock_addr_len_, 22 + packet.command_.index_));
                 if (res.ok()) {
                     LOG("[UDPHandler::ReadFrom] ToRemote: %s:%d",
-                         inet_ntoa(reinterpret_cast<sockaddr_in*>(packet.command_.sock_addr_)->sin_addr),
-                         ntohs(reinterpret_cast<sockaddr_in*>(packet.command_.sock_addr_)->sin_port));
+                        inet_ntoa(reinterpret_cast<sockaddr_in*>(packet.command_.sock_addr_)->sin_addr),
+                        ntohs(reinterpret_cast<sockaddr_in*>(packet.command_.sock_addr_)->sin_port));
                     return;
                 }
             }

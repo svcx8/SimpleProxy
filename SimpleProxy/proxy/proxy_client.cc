@@ -54,9 +54,7 @@ void ProxyClient::OnReadable(uintptr_t s) {
     auto pair = reinterpret_cast<SocketPair*>(s);
 
     if (auto recv_from_server_pool = MemoryBuffer::GetPool(pair->client_socket_)) {
-        auto result = recv_from_server_pool->RecvFromServer(pair->client_socket_); // [data race issue] When use this buffer_pool to recv data from server,
-                                                                                   // the proxy_conn#155 uses the same buffer_pool to send to client.
-                                                                                   // But i think this is a bug from ThreadSanitizer.
+        auto result = recv_from_server_pool->RecvFromServer(pair->client_socket_);
 
         if (result.ok()) {
             result.Update(recv_from_server_pool->ProxyClient_SendToClient(pair->conn_socket_));

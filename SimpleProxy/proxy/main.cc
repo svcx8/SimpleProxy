@@ -38,7 +38,7 @@ int main() {
         return -1;
     }
     
-    int tcp_server_socket = std::get<0>(tcp_rsp.value());
+    int tcp_server_socket = tcp_rsp.value();
 
     EPoller* tcp_server_poller = new EPoller(new ProxyServer());
     constexpr long flags = EPOLLIN;
