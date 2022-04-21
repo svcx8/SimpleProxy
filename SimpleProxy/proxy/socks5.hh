@@ -61,7 +61,8 @@ public:
 
     Socks5Command(void* buffer);
     ~Socks5Command() {
-        delete sock_addr_;
+        if (address_type_ != 3)
+            delete sock_addr_;
     }
     absl::Status Check();
 

@@ -10,8 +10,13 @@ std::mutex MemoryBuffer::allocate_mutex_;
 
 MemoryBuffer* MemoryBuffer::GetPool(int s) {
     std::lock_guard<std::mutex> lock(allocate_mutex_);
-    auto ptr = buffer_array_[s];
-    if (ptr == nullptr) {
+    MemoryBuffer* ptr = nullptr;
+    if (auto itor = buffer_array_.find(s); itor != buffer_array_.end()) {
+        ptr = itor->second;
+        buffer_array_[s] = ptr;
+    }
+
+    else {
         ptr = reinterpret_cast<MemoryBuffer*>(memory_pool.Allocate());
         buffer_array_[s] = ptr;
     }

@@ -27,12 +27,14 @@ void ErrorHandler(SocketPair* pair) {
     SocketPairManager::RemovePair(pair);
 }
 
+#define ERRORLOG() ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, strerror(errno))
+
 absl::Status CheckSocks5Handshake(SocketPair* pair) {
     char head_buf[128]{};
     int recv_len = recv(pair->conn_socket_, head_buf, 128, 0);
     if (recv_len == SOCKET_ERROR) {
         ErrorHandler(pair);
-        ERROR("[CheckSocks5Handshake] [t#%d] [%d] %s", gettid(), pair->conn_socket_, strerror(errno));
+        ERRORLOG();
         return absl::InternalError(strerror(errno));
     }
 
@@ -41,11 +43,12 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         Socks5Header head(head_buf);
         if (!head.Check()) {
             ErrorHandler(pair);
-            ERROR("[CheckSocks5Handshake] [t#%d] [%d] check head: Unsupported version or methods.", gettid(), pair->conn_socket_);
+            ERROR("[%s] [#L%d] [t#%d] [%d] check head: Unsupported version or methods.", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_);
             return absl::InternalError("Unsupported version or methods.");
         }
         short int return_ver = 0x0005;
         if (send(pair->conn_socket_, (char*)&return_ver, 2, 0) != 2) {
+            ERRORLOG();
             ErrorHandler(pair);
             return absl::InternalError(strerror(errno));
         }
@@ -57,7 +60,7 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         Socks5Command command(head_buf);
         auto result = command.Check();
         if (!result.ok()) {
-            ERROR("[CheckSocks5Handshake] [t#%d] [%d] check command: %s", gettid(), pair->conn_socket_, result.ToString().c_str());
+            ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, result.ToString().c_str());
             ErrorHandler(pair);
             return result;
         }
@@ -83,6 +86,7 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
                                           SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 
             if (pair->client_socket_ == SOCKET_ERROR) {
+                ERRORLOG();
                 ErrorHandler(pair);
                 return absl::InternalError(strerror(errno));
             }
@@ -90,27 +94,30 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
             // Connect to server.
             if (connect(pair->client_socket_, command.sock_addr_, command.sock_addr_len_) == SOCKET_ERROR) {
                 if (errno != EINPROGRESS) {
+                    ERRORLOG();
                     ErrorHandler(pair);
                     return absl::InternalError(strerror(errno));
                 }
             }
 
             pair->authentified_++;
-            result = SocketPairManager::AcquireClientPoller(pair)->AddSocket(pair->client_socket_,
-                                                                             reinterpret_cast<uintptr_t>(pair),
-                                                                             EPOLLOUT);
+            result.Update(SocketPairManager::AcquireClientPoller(pair)->AddSocket(pair->client_socket_,
+                                                                                  reinterpret_cast<uintptr_t>(pair),
+                                                                                  EPOLLOUT));
             if (!result.ok()) {
                 ErrorHandler(pair);
+                ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, result.ToString().c_str());
                 return absl::InternalError("[ProxyConn] Failed to add event.");
             }
         }
 
         else if (command.command_ == 0x3) {
             // UDP ASSOCIATE
-            if (UDPHandler::ReplyHandshake(pair).ok()) {
+            if (auto res = UDPHandler::ReplyHandshake(pair); res.ok()) {
                 pair->authentified_ = 4;
             } else {
                 ErrorHandler(pair);
+                ERROR("[%s] [#L%d] [t#%d] %s", __FUNCTION__, __LINE__, gettid(), res.ToString().c_str());
                 return absl::InternalError("[ProxyConn] Failed to reply handshake.");
             }
         }

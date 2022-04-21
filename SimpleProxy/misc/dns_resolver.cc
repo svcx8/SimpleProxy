@@ -91,26 +91,36 @@ private:
     std::mutex mutex_;
 };
 
-static LRUCache* cache_ = new LRUCache(128);
+static LRUCache* cache_ = new LRUCache(512);
 
 absl::StatusOr<sockaddr*> DNSResolver::Resolve(const std::string& domain) {
-    LOG("[Native] domain: %s", domain.c_str());
-    struct addrinfo hints;
-    struct addrinfo* result;
-
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = 0;
-
-    if (getaddrinfo(domain.c_str(), nullptr, &hints, &result) != 0) {
-        return absl::InternalError(absl::StrCat("Cannot resolve this domain: ", domain));
+    auto res = cache_->Get(domain);
+    if (res) {
+        LOG("[Native] domain: %s cache hit", domain.c_str());
+        return res;
     }
 
-    sockaddr* ia = new sockaddr();
-    memcpy(ia, result->ai_addr, sizeof(sockaddr));
-    freeaddrinfo(result);
-    return ia;
+    else {
+        LOG("[Native] domain: %s cache missing", domain.c_str());
+        struct addrinfo hints;
+        struct addrinfo* result;
+
+        memset(&hints, 0, sizeof(struct addrinfo));
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = 0;
+
+        if (getaddrinfo(domain.c_str(), nullptr, &hints, &result) != 0) {
+            return absl::InternalError(absl::StrCat("Cannot resolve this domain: ", domain));
+        }
+
+        sockaddr* ia = new sockaddr();
+        memcpy(ia, result->ai_addr, sizeof(sockaddr));
+        freeaddrinfo(result);
+        cache_->Put(domain, ia);
+        LOG("[Native] result: %s", inet_ntoa(((sockaddr_in*)ia)->sin_addr));
+        return ia;
+    }
 }
 
 absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
@@ -123,7 +133,7 @@ absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
     else {
         LOG("[DoH] domain: %s cache missing", domain.c_str());
         Response r = Get(Url{ Configuration::doh_server_ },
-                         Header{ { "accept", "application/json" } },
+                         Header{ { "accept", "application/dns-json" } },
                          Parameters{ { "type", "A" }, { "name", domain } },
                          VerifySsl(false));
         if (r.error.code != ErrorCode::OK) {
@@ -144,8 +154,10 @@ absl::StatusOr<sockaddr*> DNSResolver::ResolveDoH(const std::string& domain) {
                             if (auto data = record_object.FindMember("data"); data != record_object.MemberEnd() && data->value.IsString()) {
                                 const char* ip = data->value.GetString();
                                 sockaddr* sa = new sockaddr();
+                                sa->sa_family = 2;
                                 inet_pton(AF_INET, ip, &sa->sa_data[2]);
                                 cache_->Put(domain, sa);
+                                LOG("[DoH] result: %s", ip);
                                 return sa;
                             }
                         }

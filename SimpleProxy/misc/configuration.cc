@@ -54,14 +54,19 @@ void Configuration::Init() {
         Document& doc = *result;
         if (auto itr = doc.FindMember("Port"); itr != doc.MemberEnd() && itr->value.IsInt()) {
             port_ = itr->value.GetInt();
+            INFO("[Configuration] Port: %d", port_);
         }
 
         if (auto itr = doc.FindMember("EnableDoH"); itr != doc.MemberEnd() && itr->value.IsBool()) {
             enable_doh_ = itr->value.GetBool();
+            INFO("[Configuration] EnableDoH: %d", enable_doh_);
         }
 
         if (auto itr = doc.FindMember("DoHServer"); itr != doc.MemberEnd() && itr->value.IsString()) {
             doh_server_ = itr->value.GetString();
+            INFO("[Configuration] DoHServer: %s", doh_server_.c_str());
         }
+    } else {
+        ERROR("[Configuration] %s", result.status().ToString().c_str());
     }
 }
