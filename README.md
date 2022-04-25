@@ -65,14 +65,14 @@ curl "https://www.bing.com/" -x socks5h://127.0.0.1:2333
 
 `command`
 ```shell
-# apache listening port 8080
-./httpd
+# nginx listening port 80
+sudo systemctl start nginx
 
 # SimpleProxy
-./plow http://127.0.0.1:8080/ram/1m -c 500 -n 10000 --socks5 127.0.0.1:2333 -d 10s > bench.log
+./plow http://127.0.0.1/1mb -c 500 -n 50000 --socks5 127.0.0.1:2333 -d 10s
 
 # v2ray
-./plow http://127.0.0.1:8080/ram/1m -c 500 -n 10000 --socks5 127.0.0.1:1343 -d 10s > bench_v2.log
+./plow http://127.0.0.1/1mb -c 500 -n 50000 --socks5 127.0.0.1:1343 -d 10s
 ```
 
 `result`
@@ -147,4 +147,4 @@ Latency Histogram:
 - [abseil](https://github.com/abseil/abseil-cpp) - Abseil Common Libraries (C++).
 - [cpr](https://github.com/whoshuu/cpr) - C++ Requests: Curl for People, a spiritual port of Python Requests.
 - [rapidjson](https://github.com/Tencent/rapidjson) - A fast JSON parser/generator for C++ with both SAX/DOM style API.
-- [benchmark](https://github.com/six-ddc/plow) - A high-performance HTTP benchmarking tool with real-time web UI and terminal displaying.
+- [plow](https://github.com/six-ddc/plow) - A high-performance HTTP benchmarking tool with real-time web UI and terminal displaying.
