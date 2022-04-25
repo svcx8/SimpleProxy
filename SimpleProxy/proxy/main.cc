@@ -30,6 +30,11 @@ void signal_callback_handler(int signum) {
 int main() {
     signal(SIGPIPE, signal_callback_handler);
 
+    LOG("LOG message, file descriptor 1");
+    INFO("INFO message, file descriptor 1");
+    ERROR("ERROR message, file descriptor 2");
+    ERROR("Redirect ERROE message to stdout: 2>&1");
+
     Configuration::Init();
     // ********** Create TCP Listener **********
     auto tcp_rsp = Server::CreateTCPServer(Configuration::port_);

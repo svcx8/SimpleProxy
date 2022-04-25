@@ -30,7 +30,6 @@ class SocketPairManager {
 public:
     static void AddPair(int port, int s);
     static void RemovePair(SocketPair* pair);
-    static SocketPair* GetPointer(int);
 
     static ProxyPoller* AcquireConnPoller(SocketPair* pair);
     static ProxyPoller* AcquireClientPoller(SocketPair* pair);

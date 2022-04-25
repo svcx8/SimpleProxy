@@ -78,8 +78,7 @@ absl::Status Socks5Command::Check() {
     }
 
     else {
-        LOG("wtf ATYP: %02X", address_type_);
-        LOG("%02X %02X %02X %02X %02X %02X", head_buffer_[0], head_buffer_[1], head_buffer_[2], head_buffer_[3], head_buffer_[4], head_buffer_[5]);
+        ERROR("wtf ATYP: %02X %02X %02X %02X %02X %02X", head_buffer_[0], head_buffer_[1], head_buffer_[2], head_buffer_[3], head_buffer_[4], head_buffer_[5]);
         return absl::FailedPreconditionError("Unknown address type.");
     }
 

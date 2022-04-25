@@ -18,9 +18,9 @@
     } while (0)
 #endif // #ifdef NDEBUG
 
-#define ERROR(str, ...)                       \
-    do {                                      \
-        std::printf(str "\n", ##__VA_ARGS__); \
+#define ERROR(str, ...)                           \
+    do {                                          \
+        fprintf(stderr, str "\n", ##__VA_ARGS__); \
     } while (0)
 
 #define INFO(str, ...)                        \

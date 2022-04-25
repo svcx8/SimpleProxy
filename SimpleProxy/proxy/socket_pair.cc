@@ -16,7 +16,7 @@ void SocketPairManager::AddPair(int port, int s) {
     std::lock_guard<std::shared_mutex> lock(list_mutex_);
     auto pair = new SocketPair(port, s);
     socket_list_[port] = pair;
-    LOG("[AddPair] [t#%d] port: %d | socket: %d %d | pair: %p", gettid(), port, pair->conn_socket_, pair->client_socket_, pair);
+    LOG("[SPM] [t#%d] Add pair: %d - %d port: %d ", gettid(), pair->conn_socket_, pair->client_socket_, port);
     auto result = SocketPairManager::AcquireConnPoller(pair)->AddSocket(s,
                                                                         reinterpret_cast<uintptr_t>(pair),
                                                                         EPOLLIN);
@@ -30,7 +30,7 @@ void SocketPairManager::AddPair(int port, int s) {
 void SocketPairManager::RemovePair(SocketPair* pair) {
     std::lock_guard<std::shared_mutex> lock(list_mutex_);
     if (pair != nullptr && socket_list_.find(pair->port_) != socket_list_.end()) {
-        LOG("[SPM] [t#%d] Remove pair: %d - %d", gettid(), pair->conn_socket_, pair->client_socket_);
+        LOG("[SPM] [t#%d] Remove pair: %d - %d port: %d", gettid(), pair->conn_socket_, pair->client_socket_, pair->port_);
 
         pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
         close(pair->conn_socket_);

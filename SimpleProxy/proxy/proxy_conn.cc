@@ -27,14 +27,14 @@ void ErrorHandler(SocketPair* pair) {
     SocketPairManager::RemovePair(pair);
 }
 
-#define ERRORLOG() ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, strerror(errno))
+#define ERRORLOG() ERROR("[%s] [#L%d] [t#%d] [%d] port: %d %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, pair->port_, strerror(errno));
 
 absl::Status CheckSocks5Handshake(SocketPair* pair) {
     char head_buf[128]{};
     int recv_len = recv(pair->conn_socket_, head_buf, 128, 0);
-    if (recv_len == SOCKET_ERROR) {
-        ErrorHandler(pair);
+    if (recv_len <= 0) {
         ERRORLOG();
+        ErrorHandler(pair);
         return absl::InternalError(strerror(errno));
     }
 
@@ -42,8 +42,8 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
         // First handshake, check valid socks5 header.
         Socks5Header head(head_buf);
         if (!head.Check()) {
-            ErrorHandler(pair);
             ERROR("[%s] [#L%d] [t#%d] [%d] check head: Unsupported version or methods.", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_);
+            ErrorHandler(pair);
             return absl::InternalError("Unsupported version or methods.");
         }
         short int return_ver = 0x0005;
@@ -105,8 +105,8 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
                                                                                   reinterpret_cast<uintptr_t>(pair),
                                                                                   EPOLLOUT));
             if (!result.ok()) {
-                ErrorHandler(pair);
                 ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, result.ToString().c_str());
+                ErrorHandler(pair);
                 return absl::InternalError("[ProxyConn] Failed to add event.");
             }
         }
@@ -116,8 +116,8 @@ absl::Status CheckSocks5Handshake(SocketPair* pair) {
             if (auto res = UDPHandler::ReplyHandshake(pair); res.ok()) {
                 pair->authentified_ = 4;
             } else {
-                ErrorHandler(pair);
                 ERROR("[%s] [#L%d] [t#%d] %s", __FUNCTION__, __LINE__, gettid(), res.ToString().c_str());
+                ErrorHandler(pair);
                 return absl::InternalError("[ProxyConn] Failed to reply handshake.");
             }
         }
