@@ -151,30 +151,35 @@ void ProxyConn::OnReadable(uintptr_t s) {
                 }
 
                 else {
-                    result = absl::OkStatus();
-                    // The buffer of proxy server cannot receive more data, add to poller.
-                    // absl::Status ProxyClient::OnWritable(int s) will send remaining data.
-                    result.Update(poller_->RemoveSocket(pair->conn_socket_));
-                    result.Update(pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLOUT));
+                    if (pair->conn_socket_ && pair->client_socket_) {
+                        result = absl::OkStatus();
+                        // The buffer of proxy server cannot receive more data, add to poller.
+                        // absl::Status ProxyClient::OnWritable(int s) will send remaining data.
+                        result.Update(poller_->RemoveSocket(pair->conn_socket_));
+                        result.Update(pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLOUT));
 
-                    if (!result.ok()) {
-                        // TODO
+                        if (!result.ok()) {
+                            // TODO
+                        }
                     }
                 }
             }
         }
     }
 
-    else {
-        if (pair->authentified_ == 4) {
-            LOG("[ProxyConn] [t#%d] [%d] Remove UDP Associate.", gettid(), pair->client_socket_);
-            pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
-            close(pair->conn_socket_);
+    else if (pair->authentified_ == 4) {
+        LOG("[ProxyConn] [t#%d] [%d] Remove UDP Associate.", gettid(), pair->client_socket_);
+        pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
+        close(pair->conn_socket_);
 
-            ProxyPoller* udp_poller = reinterpret_cast<ProxyPoller*>(EPoller::reserved_list_[EPoller::reserved_list_.size() - 1]);
-            udp_poller->RemoveSocket(pair->client_socket_).IgnoreError();
-            close(pair->client_socket_);
-        }
+        ProxyPoller* udp_poller = reinterpret_cast<ProxyPoller*>(EPoller::reserved_list_[EPoller::reserved_list_.size() - 1]);
+        udp_poller->RemoveSocket(pair->client_socket_).IgnoreError();
+        close(pair->client_socket_);
+    }
+
+    else {
+        ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, "Invalid authentified.");
+        SocketPairManager::RemovePair(pair);
     }
 }
 

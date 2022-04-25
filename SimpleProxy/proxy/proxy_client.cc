@@ -67,14 +67,16 @@ void ProxyClient::OnReadable(uintptr_t s) {
                                                      // and the proxy_conn.cc#125 trying to send to proxy.
                 return;
             } else {
-                result = absl::OkStatus();
-                // The buffer of client cannot receive more data, add to poller.
-                // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
-                result.Update(poller_->RemoveSocket(pair->client_socket_));
-                result.Update(pair->conn_poller_->ModSocket(pair->conn_socket_, s, EPOLLOUT));
+                if (pair->conn_socket_ && pair->client_socket_) {
+                    result = absl::OkStatus();
+                    // The buffer of client cannot receive more data, add to poller.
+                    // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
+                    result.Update(poller_->RemoveSocket(pair->client_socket_));
+                    result.Update(pair->conn_poller_->ModSocket(pair->conn_socket_, s, EPOLLOUT));
 
-                if (!result.ok()) {
-                    // TODO
+                    if (!result.ok()) {
+                        // TODO
+                    }
                 }
             }
         }

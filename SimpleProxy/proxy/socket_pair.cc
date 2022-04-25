@@ -42,6 +42,7 @@ void SocketPairManager::RemovePair(SocketPair* pair) {
 
         socket_list_.erase(pair->port_);
         pair->conn_socket_ = 0;
+        pair->client_socket_ = 0;
         delete pair;
     }
 }
