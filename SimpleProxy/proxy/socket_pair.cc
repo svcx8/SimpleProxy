@@ -1,5 +1,7 @@
 #include "socket_pair.hh"
 
+#include <thread>
+
 #include "dispatcher/epoller.hh"
 #include "memory_buffer.hh"
 #include "misc/logger.hh"
@@ -15,35 +17,40 @@ SocketPair::~SocketPair() {
 void SocketPairManager::AddPair(int port, int s) {
     std::lock_guard<std::shared_mutex> lock(list_mutex_);
     auto pair = new SocketPair(port, s);
-    socket_list_[port] = pair;
+
     LOG("[SPM] [t#%d] Add pair: %d - %d port: %d ", gettid(), pair->conn_socket_, pair->client_socket_, port);
     auto result = SocketPairManager::AcquireConnPoller(pair)->AddSocket(s,
                                                                         reinterpret_cast<uintptr_t>(pair),
                                                                         EPOLLIN);
     if (!result.ok()) {
         LOG("[SPM] [%d] Failed to add event", s);
-        SocketPairManager::RemovePair(pair);
+        delete pair;
         return;
+    }
+    socket_list_[port] = pair;
+}
+
+void SocketPairManager::RemoveConnPair(SocketPair* pair) {
+    LOG("[SPM] [t#%d] Remove Conn pair: %d - %d port: %d", gettid(), pair->conn_socket_, pair->client_socket_, pair->port_);
+
+    close(pair->conn_socket_);
+    pair->conn_socket_ = -233;
+
+    if (pair->client_socket_ > 0) {
+        close(pair->client_socket_);
+        pair->client_socket_ = -233;
     }
 }
 
-void SocketPairManager::RemovePair(SocketPair* pair) {
-    std::lock_guard<std::shared_mutex> lock(list_mutex_);
-    if (pair != nullptr && socket_list_.find(pair->port_) != socket_list_.end()) {
-        LOG("[SPM] [t#%d] Remove pair: %d - %d port: %d", gettid(), pair->conn_socket_, pair->client_socket_, pair->port_);
+void SocketPairManager::RemoveClientPair(SocketPair* pair) {
+    LOG("[SPM] [t#%d] Remove Client pair: %d - %d port: %d", gettid(), pair->conn_socket_, pair->client_socket_, pair->port_);
 
-        pair->conn_poller_->RemoveSocket(pair->conn_socket_).IgnoreError();
+    close(pair->client_socket_);
+    pair->client_socket_ = -233;
+
+    if (pair->conn_socket_ > 0) {
         close(pair->conn_socket_);
-
-        if (pair->client_poller_) {
-            pair->client_poller_->RemoveSocket(pair->client_socket_).IgnoreError();
-            close(pair->client_socket_);
-        }
-
-        socket_list_.erase(pair->port_);
-        pair->conn_socket_ = 0;
-        pair->client_socket_ = 0;
-        delete pair;
+        pair->conn_socket_ = -233;
     }
 }
 
@@ -57,15 +64,36 @@ ProxyPoller* SocketPairManager::AcquireConnPoller(SocketPair* pair) {
     /*
         last_poller_index_ = 1, 2, 1, 2, 1, 2......
     */
+    LOG("[SPM] [AcquireConnPoller] [t#%d] %d %d poller: %p", gettid(), pair->conn_socket_, pair->client_socket_, pair->conn_poller_);
     return pair->conn_poller_;
 }
 
 ProxyPoller* SocketPairManager::AcquireClientPoller(SocketPair* pair) {
-    LOG("[SPM] [AcquireClientPoller] %d %d idx: %d", pair->conn_socket_, pair->client_socket_, last_poller_index_.load());
     pair->client_poller_ = reinterpret_cast<ProxyPoller*>(EPoller::reserved_list_[last_poller_index_ - 1]);
     last_poller_index_ = last_poller_index_ % 2 + 1;
     /*
         last_poller_index_ = 1, 2, 1, 2, 1, 2......
     */
+    LOG("[SPM] [AcquireClientPoller] [t#%d] %d %d poller: %p", gettid(), pair->conn_socket_, pair->client_socket_, pair->client_poller_);
     return pair->client_poller_;
+}
+
+void SocketPairManager::StartPrugeThread() {
+    std::thread([]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            std::lock_guard<std::shared_mutex> lock(list_mutex_);
+            int count = 0;
+            for (auto it = socket_list_.begin(); it != socket_list_.end();) {
+                if (it->second->conn_socket_ == -233 && it->second->client_socket_ == -233) {
+                    delete it->second;
+                    it = socket_list_.erase(it);
+                    count++;
+                } else {
+                    ++it;
+                }
+            }
+            LOG("[SPM] [t#%d] Prune %d pairs, left: %ld", gettid(), count, socket_list_.size());
+        }
+    }).detach();
 }

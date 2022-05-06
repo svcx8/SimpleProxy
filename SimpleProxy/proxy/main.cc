@@ -1,5 +1,6 @@
 #include <thread>
 
+#include "proxy/socket_pair.hh"
 #include "proxy/udp_server.hh"
 #include "signal.h"
 
@@ -27,8 +28,16 @@ void signal_callback_handler(int signum) {
     // (gdb) handle SIGPIPE nostop noprint pass
 }
 
+void signal_exit(int signum) {
+    for (auto& item : SocketPairManager::socket_list_) {
+        INFO("[SPM] [%d] %d - %d is_close: %d", item.first, item.second->conn_socket_, item.second->client_socket_, item.second->is_close_);
+    }
+    exit(0);
+}
+
 int main() {
     signal(SIGPIPE, signal_callback_handler);
+    signal(SIGINT, signal_exit);
 
     LOG("LOG message, file descriptor 1");
     INFO("INFO message, file descriptor 1");
@@ -42,7 +51,7 @@ int main() {
         ERROR("%s", tcp_rsp.status().ToString().c_str());
         return -1;
     }
-    
+
     int tcp_server_socket = tcp_rsp.value();
 
     EPoller* tcp_server_poller = new EPoller(new ProxyServer());
@@ -110,6 +119,8 @@ int main() {
             udp_server_poller->Poll();
         }
     }).detach();
+
+    SocketPairManager::StartPrugeThread();
 
     LOG("[#%d] server_poller", gettid());
     while (true) {

@@ -24,7 +24,7 @@ void ErrorHandler(SocketPair* pair) {
         }
     }
 
-    SocketPairManager::RemovePair(pair);
+    SocketPairManager::RemoveConnPair(pair);
 }
 
 #define ERRORLOG() ERROR("[%s] [#L%d] [t#%d] [%d] port: %d %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, pair->port_, strerror(errno));
@@ -137,6 +137,12 @@ void ProxyConn::OnReadable(uintptr_t s) {
 
     else if (pair->authentified_ < 4) {
         // Receiving from Client, e.g. curl https://baidu.com
+        if (pair->client_socket_ == -233) {
+            ERROR("[%s] [#L%d] [t#%d] [%d] client_socket_ = -233", __FUNCTION__, __LINE__, gettid(), pair->port_);
+            SocketPairManager::RemoveClientPair(pair);
+            return;
+        }
+
         if (auto recv_from_client_pool = MemoryBuffer::GetPool(pair->conn_socket_)) {
             auto result = recv_from_client_pool->ReceiveFromClient(pair->conn_socket_);
 
@@ -146,21 +152,19 @@ void ProxyConn::OnReadable(uintptr_t s) {
 
             if (!result.ok()) {
                 if (result.code() != absl::StatusCode::kResourceExhausted) {
-                    SocketPairManager::RemovePair(pair);
+                    SocketPairManager::RemoveConnPair(pair);
                     return;
                 }
 
                 else {
-                    if (pair->conn_socket_ && pair->client_socket_) {
-                        result = absl::OkStatus();
-                        // The buffer of proxy server cannot receive more data, add to poller.
-                        // absl::Status ProxyClient::OnWritable(int s) will send remaining data.
-                        result.Update(poller_->RemoveSocket(pair->conn_socket_));
-                        result.Update(pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLOUT));
+                    result = absl::OkStatus();
+                    // The buffer of proxy server cannot receive more data, add to poller.
+                    // absl::Status ProxyClient::OnWritable(int s) will send remaining data.
+                    result.Update(pair->conn_poller_->RemoveSocket(pair->conn_socket_));
+                    result.Update(pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLOUT));
 
-                        if (!result.ok()) {
-                            // TODO
-                        }
+                    if (!result.ok()) {
+                        SocketPairManager::RemoveConnPair(pair);
                     }
                 }
             }
@@ -179,17 +183,23 @@ void ProxyConn::OnReadable(uintptr_t s) {
 
     else {
         ERROR("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->conn_socket_, "Invalid authentified.");
-        SocketPairManager::RemovePair(pair);
+        SocketPairManager::RemoveConnPair(pair);
     }
 }
 
 void ProxyConn::OnWritable(uintptr_t s) {
     auto pair = reinterpret_cast<SocketPair*>(s);
 
+    if (pair->client_socket_ == -233) {
+        ERROR("[%s] [#L%d] [t#%d] [%d] client_socket_ = -233", __FUNCTION__, __LINE__, gettid(), pair->port_);
+        SocketPairManager::RemoveClientPair(pair);
+        return;
+    }
+
     if (auto recv_from_server_pool = MemoryBuffer::GetPool(pair->client_socket_)) {
         auto result = recv_from_server_pool->ProxyConn_SendToClient(pair->conn_socket_);
         if (!result.ok()) {
-            SocketPairManager::RemovePair(pair);
+            SocketPairManager::RemoveConnPair(pair);
             return;
         }
         // If the buffer is empty, we can remove EPOLLOUT event.
@@ -198,7 +208,7 @@ void ProxyConn::OnWritable(uintptr_t s) {
             result.Update(pair->client_poller_->AddSocket(pair->client_socket_, s, EPOLLIN));
 
             if (!result.ok()) {
-                // TODO
+                SocketPairManager::RemoveConnPair(pair);
             }
         }
     }

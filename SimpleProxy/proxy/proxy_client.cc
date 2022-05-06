@@ -53,6 +53,12 @@
 void ProxyClient::OnReadable(uintptr_t s) {
     auto pair = reinterpret_cast<SocketPair*>(s);
 
+    if (pair->conn_socket_ == -233) {
+        ERROR("[%s] [#L%d] [t#%d] [%d] conn_socket_ = -233", __FUNCTION__, __LINE__, gettid(), pair->port_);
+        SocketPairManager::RemoveClientPair(pair);
+        return;
+    }
+
     if (auto recv_from_server_pool = MemoryBuffer::GetPool(pair->client_socket_)) {
         auto result = recv_from_server_pool->RecvFromServer(pair->client_socket_);
 
@@ -62,21 +68,17 @@ void ProxyClient::OnReadable(uintptr_t s) {
 
         if (!result.ok()) {
             if (result.code() != absl::StatusCode::kResourceExhausted) {
-                SocketPairManager::RemovePair(pair); // TODO: [data race issue] When connection reset by client,
-                                                     // the proxy_conn.cc#122 still reading from client,
-                                                     // and the proxy_conn.cc#125 trying to send to proxy.
+                SocketPairManager::RemoveClientPair(pair);
                 return;
             } else {
-                if (pair->conn_socket_ && pair->client_socket_) {
-                    result = absl::OkStatus();
-                    // The buffer of client cannot receive more data, add to poller.
-                    // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
-                    result.Update(poller_->RemoveSocket(pair->client_socket_));
-                    result.Update(pair->conn_poller_->ModSocket(pair->conn_socket_, s, EPOLLOUT));
+                result = absl::OkStatus();
+                // The buffer of client cannot receive more data, add to poller.
+                // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
+                result.Update(pair->client_poller_->RemoveSocket(pair->client_socket_));
+                result.Update(pair->conn_poller_->ModSocket(pair->conn_socket_, s, EPOLLOUT));
 
-                    if (!result.ok()) {
-                        // TODO
-                    }
+                if (!result.ok()) {
+                    SocketPairManager::RemoveClientPair(pair);
                 }
             }
         }
@@ -85,6 +87,12 @@ void ProxyClient::OnReadable(uintptr_t s) {
 
 void ProxyClient::OnWritable(uintptr_t s) {
     auto pair = reinterpret_cast<SocketPair*>(s);
+
+    if (pair->conn_socket_ == -233) {
+        ERROR("[%s] [#L%d] [t#%d] [%d] conn_socket_ = -233", __FUNCTION__, __LINE__, gettid(), pair->port_);
+        SocketPairManager::RemoveClientPair(pair);
+        return;
+    }
 
     if (auto recv_from_client_pool = MemoryBuffer::GetPool(pair->conn_socket_)) {
         if (pair->authentified_ == 2) {
@@ -96,14 +104,14 @@ void ProxyClient::OnWritable(uintptr_t s) {
 
             if (socket_error != 0) {
                 send(pair->conn_socket_, Socks5Command::reply_failure, 10, 0);
-                SocketPairManager::RemovePair(pair);
+                SocketPairManager::RemoveClientPair(pair);
                 return;
             }
 
             pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLIN).IgnoreError();
 
             if (send(pair->conn_socket_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
-                SocketPairManager::RemovePair(pair);
+                SocketPairManager::RemoveClientPair(pair);
                 return;
             }
             pair->authentified_++;
@@ -113,7 +121,7 @@ void ProxyClient::OnWritable(uintptr_t s) {
         else {
             auto result = recv_from_client_pool->ProxyClient_SendToServer(pair->client_socket_);
             if (!result.ok()) {
-                SocketPairManager::RemovePair(pair);
+                SocketPairManager::RemoveClientPair(pair);
                 return;
             }
             // Remove EPOLLOUT event after the buffer is empty.
@@ -123,7 +131,7 @@ void ProxyClient::OnWritable(uintptr_t s) {
             }
 
             if (!result.ok()) {
-                // TODO
+                SocketPairManager::RemoveClientPair(pair);
             }
         }
     }

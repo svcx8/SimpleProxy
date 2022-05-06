@@ -13,7 +13,7 @@ public:
         _event.data.u64 = socket_pair;
         _event.events = eventflags;
         SetNonBlocking(s);
-        LOG("[AddSocket] [#%d] [%d] %ld pair: %lX", gettid(), s, eventflags, socket_pair);
+        LOG("[AddSocket] [#%d] [%p] [%d] %ld", gettid(), this, s, eventflags);
         if (epoll_ctl(epoller_inst_, EPOLL_CTL_ADD, s, &_event) == -1) {
             LOG("[AddSocket] [%d] %s", s, strerror(errno));
             return absl::InternalError(strerror(errno));

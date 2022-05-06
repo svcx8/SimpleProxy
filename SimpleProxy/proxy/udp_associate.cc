@@ -177,5 +177,5 @@ void UDPHandler::Forward(SocketPair* pair) {
             }
         }
     }
-    ERROR("[UDPHandler::ReadFrom] Error: %s", res.ToString().c_str());
+    ERROR("[UDPHandler::ReadFrom] Error: %s %d - %d", res.ToString().c_str(), pair->conn_socket_, pair->client_socket_);
 }

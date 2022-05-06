@@ -17,11 +17,12 @@ public:
     ProxyPoller* conn_poller_ = nullptr;
     ProxyPoller* client_poller_ = nullptr;
     int port_ = 0;
-    int conn_socket_ = 0;
-    int client_socket_ = 0;
+    int conn_socket_ = -233;
+    int client_socket_ = -233;
     int authentified_ = 0;
     sockaddr_storage tcp_auth_addr_;
     int tcp_auth_addr_len_ = 0;
+    bool is_close_ = false;
 };
 
 class SocketPairManager {
@@ -29,12 +30,14 @@ class SocketPairManager {
 
 public:
     static void AddPair(int port, int s);
-    static void RemovePair(SocketPair* pair);
+    static void RemoveConnPair(SocketPair* pair);
+    static void RemoveClientPair(SocketPair* pair);
 
     static ProxyPoller* AcquireConnPoller(SocketPair* pair);
     static ProxyPoller* AcquireClientPoller(SocketPair* pair);
+    static void StartPrugeThread();
 
-private:
+// private:
     static std::unordered_map<int, SocketPair*> socket_list_; // Set the client port as index.
     static std::shared_mutex list_mutex_;
     static std::atomic<int> last_poller_index_;
