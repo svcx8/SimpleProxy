@@ -7,6 +7,8 @@ class ProxyConn : public IBusinessEvent {
 public:
     void OnReadable(uintptr_t) override;
     void OnWritable(uintptr_t) override;
+    void OnError(uintptr_t) override;
+    void OnClose(uintptr_t) override;
 };
 
 #endif // proxy_conn.hh

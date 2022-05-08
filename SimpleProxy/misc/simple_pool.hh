@@ -1,6 +1,8 @@
 #ifndef SIMPLE_POOL_HEADER
 #define SIMPLE_POOL_HEADER
 
+#include <mutex>
+
 template <int number, int size>
 class SimplePool {
 public:
@@ -14,6 +16,7 @@ public:
     }
 
     void* Allocate() {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!free_chunk_header_) {
             MemoryBlock* new_block = new MemoryBlock;
             free_chunk_header_ = &new_block->chunks_[0];
@@ -35,6 +38,7 @@ public:
     }
 
     void Revert(void* ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
         FreeChunk* chunk = (FreeChunk*)ptr;
         chunk->next_ = free_chunk_header_;
         free_chunk_header_ = chunk;
@@ -54,6 +58,7 @@ private:
         FreeChunk chunks_[number];
     };
     MemoryBlock* memory_block_header_ = nullptr;
+    std::mutex mutex_;
 };
 
 #endif // simple_pool.hh

@@ -8,39 +8,69 @@
 #include <shared_mutex>
 #include <unordered_map>
 
+#include "memory_buffer.hh"
 #include "poller.hh"
 
-class SocketPair {
+ProxyPoller* AcquireConnPoller();
+ProxyPoller* AcquireClientPoller();
+void StartPurgeThread();
+
+class SocketBase {
 public:
-    ~SocketPair();
-    SocketPair(int port, int s) : port_(port), conn_socket_(s) {}
-    ProxyPoller* conn_poller_ = nullptr;
-    ProxyPoller* client_poller_ = nullptr;
-    int port_ = 0;
-    int conn_socket_ = -233;
-    int client_socket_ = -233;
-    int authentified_ = 0;
-    sockaddr_storage tcp_auth_addr_;
-    int tcp_auth_addr_len_ = 0;
-    bool is_close_ = false;
+    SocketBase(int s, ProxyPoller* poller, MemoryBuffer* buffer) : socket_(s), poller_(poller), buffer_(buffer){};
+    virtual void Close() = 0;
+
+    // delete copy and move constructor and assignment operator
+    SocketBase(const SocketBase&) = delete;
+    SocketBase& operator=(const SocketBase&) = delete;
+    SocketBase(SocketBase&&) = delete;
+    SocketBase& operator=(SocketBase&&) = delete;
+
+    int socket_ = -233;
+    int is_closed_ = false;
+    ProxyPoller* poller_ = nullptr;
+    MemoryBuffer* buffer_ = nullptr;
+    SocketBase* other_side_ = nullptr;
 };
 
-class SocketPairManager {
-    friend class SocketPair;
-
+class ConnSocket : public SocketBase {
 public:
-    static void AddPair(int port, int s);
-    static void RemoveConnPair(SocketPair* pair);
-    static void RemoveClientPair(SocketPair* pair);
+    ConnSocket(int s) : SocketBase(s, AcquireConnPoller(), MemoryBuffer::AcquirePool()) {
+        AddToList(s, this);
+    }
+    virtual void Close() override;
 
-    static ProxyPoller* AcquireConnPoller(SocketPair* pair);
-    static ProxyPoller* AcquireClientPoller(SocketPair* pair);
-    static void StartPrugeThread();
+    // delete copy and move constructor and assignment operator
+    ConnSocket(const ConnSocket&) = delete;
+    ConnSocket& operator=(const ConnSocket&) = delete;
+    ConnSocket(ConnSocket&&) = delete;
+    ConnSocket& operator=(ConnSocket&&) = delete;
 
-// private:
-    static std::unordered_map<int, SocketPair*> socket_list_; // Set the client port as index.
-    static std::shared_mutex list_mutex_;
-    static std::atomic<int> last_poller_index_;
+    static void AddToList(int s, ConnSocket* conn_socket);
+    static std::unordered_map<int, ConnSocket*> list_;
+    static std::mutex list_mutex_;
+
+    int authentified_ = 0;
+};
+
+class ClientSocket : public SocketBase {
+public:
+    ClientSocket(int s) : SocketBase(s, AcquireClientPoller(), MemoryBuffer::AcquirePool()) {
+        AddToList(s, this);
+    }
+    virtual void Close() override;
+    // delete copy and move constructor and assignment operator
+    ClientSocket(const ClientSocket&) = delete;
+    ClientSocket& operator=(const ClientSocket&) = delete;
+    ClientSocket(ClientSocket&&) = delete;
+    ClientSocket& operator=(ClientSocket&&) = delete;
+
+    static void AddToList(int s, ClientSocket* client_socket);
+    static std::unordered_map<int, ClientSocket*> list_;
+    static std::mutex list_mutex_;
+
+    sockaddr_storage tcp_auth_addr_;
+    int tcp_auth_addr_len_ = 0;
 };
 
 #endif // socket_pair.hh

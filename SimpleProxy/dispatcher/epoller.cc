@@ -64,12 +64,20 @@ void EPoller::Poll() {
 }
 
 void EPoller::HandleEvents(uintptr_t s, uint32_t event) {
-    if (event & EPOLLIN) {
+    if (event & EPOLLRDHUP) {
+        op_->OnClose(s);
+    }
+
+    else if (event & EPOLLIN) {
         op_->OnReadable(s);
     }
 
     else if (event & EPOLLOUT) {
         op_->OnWritable(s);
+    }
+
+    else if (event & EPOLLERR) {
+        op_->OnError(s);
     }
 }
 

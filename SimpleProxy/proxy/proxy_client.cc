@@ -13,31 +13,6 @@
 #include <absl/status/status.h>
 
 /*
-    There has some plans to use TokenBucket to limit the speed of download.
-
-    1) if(token_bucket_->consure()) {
-        sleep(token_bucket_->get_tick());
-    }
-
-    2) epoll_ctl(epoller_inst_, EPOLL_CTL_DEL, s, nullptr)
-
-    3) create a thread to any connects
-
-    4) send(token_bucket_->serving_);
-
-    Unfortunately, if we are the server, plan 4) would be a good idea.
-    But in this case, as a proxy, if we only limit the speed of upload,
-    the speed you download from the remote server is not limited.
-    In worst case, the file has been downloaded to buffer_pool_,
-    but we still send to client at slow speed.
-
-    In plan 1), we're not using multi-thread to handle per connect,
-    so it will block the others.
-
-    In plan 2) and 3), i don't know if it will cause high cpu usage.
-*/
-
-/*
     Level Triggered
     EPOLLIN Event
 
@@ -51,88 +26,102 @@
 */
 
 void ProxyClient::OnReadable(uintptr_t s) {
-    auto pair = reinterpret_cast<SocketPair*>(s);
+    auto pair = reinterpret_cast<ClientSocket*>(s);
 
-    if (pair->conn_socket_ == -233) {
-        ERROR("[%s] [#L%d] [t#%d] [%d] conn_socket_ = -233", __FUNCTION__, __LINE__, gettid(), pair->port_);
-        SocketPairManager::RemoveClientPair(pair);
+    if (pair->is_closed_) {
+        ERROR("[%s] [#L%d] [t#%d] closed: %d", __FUNCTION__, __LINE__, gettid(), pair->socket_);
+        pair->Close();
         return;
     }
 
-    if (auto recv_from_server_pool = MemoryBuffer::GetPool(pair->client_socket_)) {
-        auto result = recv_from_server_pool->RecvFromServer(pair->client_socket_);
+    auto recv_from_server_pool = pair->buffer_;
+    auto result = recv_from_server_pool->RecvFromServer(pair->socket_);
 
-        if (result.ok()) {
-            result.Update(recv_from_server_pool->ProxyClient_SendToClient(pair->conn_socket_));
-        }
+    if (result.ok()) {
+        result.Update(recv_from_server_pool->ProxyClient_SendToClient(pair->other_side_->socket_));
+    }
 
-        if (!result.ok()) {
-            if (result.code() != absl::StatusCode::kResourceExhausted) {
-                SocketPairManager::RemoveClientPair(pair);
-                return;
-            } else {
-                result = absl::OkStatus();
-                // The buffer of client cannot receive more data, add to poller.
-                // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
-                result.Update(pair->client_poller_->RemoveSocket(pair->client_socket_));
-                result.Update(pair->conn_poller_->ModSocket(pair->conn_socket_, s, EPOLLOUT));
+    if (!result.ok()) {
+        if (result.code() != absl::StatusCode::kResourceExhausted) {
+            pair->Close();
+            return;
+        } else {
+            result = absl::OkStatus();
+            // The buffer of client cannot receive more data, add to poller.
+            // absl::Status ProxyConn::OnWritable(int s) will send remaining data.
+            result.Update(pair->poller_->RemoveSocket(pair->socket_));
+            result.Update(pair->other_side_->poller_->ModSocket(pair->other_side_->socket_,
+                                                                reinterpret_cast<uintptr_t>(pair->other_side_),
+                                                                EPOLLOUT | EPOLLRDHUP));
 
-                if (!result.ok()) {
-                    SocketPairManager::RemoveClientPair(pair);
-                }
+            if (!result.ok()) {
+                pair->Close();
             }
         }
     }
 }
 
 void ProxyClient::OnWritable(uintptr_t s) {
-    auto pair = reinterpret_cast<SocketPair*>(s);
+    auto pair = reinterpret_cast<ClientSocket*>(s);
 
-    if (pair->conn_socket_ == -233) {
-        ERROR("[%s] [#L%d] [t#%d] [%d] conn_socket_ = -233", __FUNCTION__, __LINE__, gettid(), pair->port_);
-        SocketPairManager::RemoveClientPair(pair);
+    if (pair->is_closed_) {
+        ERROR("[%s] [#L%d] [t#%d] closed: %d", __FUNCTION__, __LINE__, gettid(), pair->socket_);
+        pair->Close();
         return;
     }
 
-    if (auto recv_from_client_pool = MemoryBuffer::GetPool(pair->conn_socket_)) {
-        if (pair->authentified_ == 2) {
-            int socket_error = 0;
-            socklen_t socket_error_len = sizeof(socket_error);
-            if (getsockopt(pair->client_socket_, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len) < 0) {
-                return;
-            }
-
-            if (socket_error != 0) {
-                send(pair->conn_socket_, Socks5Command::reply_failure, 10, 0);
-                SocketPairManager::RemoveClientPair(pair);
-                return;
-            }
-
-            pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLIN).IgnoreError();
-
-            if (send(pair->conn_socket_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
-                SocketPairManager::RemoveClientPair(pair);
-                return;
-            }
-            pair->authentified_++;
+    auto recv_from_client_pool = pair->other_side_->buffer_;
+    if (reinterpret_cast<ConnSocket*>(pair->other_side_)->authentified_ == 2) {
+        int socket_error = 0;
+        socklen_t socket_error_len = sizeof(socket_error);
+        if (getsockopt(pair->socket_, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len) < 0) {
             return;
         }
 
-        else {
-            auto result = recv_from_client_pool->ProxyClient_SendToServer(pair->client_socket_);
-            if (!result.ok()) {
-                SocketPairManager::RemoveClientPair(pair);
-                return;
-            }
-            // Remove EPOLLOUT event after the buffer is empty.
-            if (recv_from_client_pool->Usage() == 0) {
-                result.Update(pair->client_poller_->ModSocket(pair->client_socket_, s, EPOLLIN));
-                result.Update(pair->conn_poller_->AddSocket(pair->conn_socket_, s, EPOLLIN));
-            }
+        if (socket_error != 0) {
+            send(pair->other_side_->socket_, Socks5Command::reply_failure, 10, 0);
+            pair->Close();
+            return;
+        }
 
-            if (!result.ok()) {
-                SocketPairManager::RemoveClientPair(pair);
-            }
+        pair->poller_->ModSocket(pair->socket_, s, EPOLLIN).IgnoreError();
+
+        if (send(pair->other_side_->socket_, Socks5Command::reply_success, 10, 0) == SOCKET_ERROR) {
+            pair->Close();
+            return;
+        }
+        reinterpret_cast<ConnSocket*>(pair->other_side_)->authentified_++;
+        return;
+    }
+
+    else {
+        auto result = recv_from_client_pool->ProxyClient_SendToServer(pair->socket_);
+        if (!result.ok()) {
+            pair->Close();
+            return;
+        }
+        // Remove EPOLLOUT event after the buffer is empty.
+        if (recv_from_client_pool->Usage() == 0) {
+            result.Update(pair->poller_->ModSocket(pair->socket_, s, EPOLLIN | EPOLLRDHUP));
+            result.Update(pair->other_side_->poller_->AddSocket(pair->other_side_->socket_,
+                                                                reinterpret_cast<uintptr_t>(pair->other_side_),
+                                                                EPOLLIN | EPOLLRDHUP));
+        }
+
+        if (!result.ok()) {
+            LOG("[%s] [#L%d] [t#%d] closed: %d", __FUNCTION__, __LINE__, gettid(), pair->socket_);
+            pair->Close();
         }
     }
+}
+
+void ProxyClient::OnError(uintptr_t s) {
+    auto pair = reinterpret_cast<ClientSocket*>(s);
+    LOG("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->socket_, "OnError.");
+}
+
+void ProxyClient::OnClose(uintptr_t s) {
+    auto pair = reinterpret_cast<ClientSocket*>(s);
+    LOG("[%s] [#L%d] [t#%d] [%d] %s", __FUNCTION__, __LINE__, gettid(), pair->socket_, "OnClose.");
+    pair->Close();
 }

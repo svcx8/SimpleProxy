@@ -9,9 +9,10 @@ class IBusinessEvent {
 public:
     virtual ~IBusinessEvent() {}
     virtual void OnAcceptable(uintptr_t){};
-    virtual void OnCloseable(uintptr_t){};
+    virtual void OnClose(uintptr_t){};
     virtual void OnReadable(uintptr_t){};
     virtual void OnWritable(uintptr_t){};
+    virtual void OnError(uintptr_t){};
     IPoller* poller_ = nullptr;
 };
 

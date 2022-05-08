@@ -8,7 +8,8 @@
 #include <absl/status/statusor.h>
 
 #include "misc/logger.hh"
-#include "socket_pair.hh"
+
+class SocketPair;
 
 class MemoryBuffer {
 public:
@@ -39,14 +40,14 @@ public:
     absl::Status ReceiveFromClient(int s) {
         auto&& res = Receive(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
+            LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status RecvFromServer(int s) {
         auto&& res = Receive(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
+            LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
@@ -54,14 +55,14 @@ public:
     absl::Status ProxyConn_SendToServer(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
+            LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status ProxyClient_SendToServer(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
+            LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
@@ -69,27 +70,24 @@ public:
     absl::Status ProxyConn_SendToClient(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
+            LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status ProxyClient_SendToClient(int s) {
         auto&& res = Send(s);
         if (!res.ok()) {
-            LOG("[" LINE_FILE "] [%d] ERROR: sys: %s absl: %s", s, strerror(errno), res.ToString().c_str());
+            LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
 
-    static MemoryBuffer* GetPool(int s);
-    static void RemovePool(SocketPair* pair);
+    static MemoryBuffer* AcquirePool();
+    static void RevertPool(MemoryBuffer* buffer);
 
 private:
-    static std::mutex allocate_mutex_;
-
     absl::Status Receive(int s);
     absl::Status Send(int s);
-    static std::unordered_map<int, MemoryBuffer*> buffer_array_;
 };
 
 #endif // memory_buffer.hh

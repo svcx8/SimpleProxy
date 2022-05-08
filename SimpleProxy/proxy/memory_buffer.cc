@@ -3,37 +3,16 @@
 #include "misc/logger.hh"
 #include "misc/net.hh"
 #include "misc/simple_pool.hh"
+#include "socket_pair.hh"
 
-std::unordered_map<int, MemoryBuffer*> MemoryBuffer::buffer_array_;
 static SimplePool<10, sizeof(MemoryBuffer)> memory_pool;
-std::mutex MemoryBuffer::allocate_mutex_;
 
-MemoryBuffer* MemoryBuffer::GetPool(int s) {
-    std::lock_guard<std::mutex> lock(allocate_mutex_);
-    MemoryBuffer* ptr = nullptr;
-    if (auto itor = buffer_array_.find(s); itor != buffer_array_.end()) {
-        ptr = itor->second;
-        buffer_array_[s] = ptr;
-    }
-
-    else {
-        ptr = reinterpret_cast<MemoryBuffer*>(memory_pool.Allocate());
-        buffer_array_[s] = ptr;
-    }
-    return ptr;
+MemoryBuffer* MemoryBuffer::AcquirePool() {
+    return reinterpret_cast<MemoryBuffer*>(memory_pool.Allocate());
 }
 
-void MemoryBuffer::RemovePool(SocketPair* pair) {
-    std::lock_guard<std::mutex> lock(allocate_mutex_);
-    if (auto pool_1 = buffer_array_.find(pair->conn_socket_); pool_1 != buffer_array_.end()) {
-        memory_pool.Revert(pool_1->second);
-        buffer_array_.erase(pool_1);
-    }
-
-    if (auto pool_2 = buffer_array_.find(pair->client_socket_); pool_2 != buffer_array_.end()) {
-        memory_pool.Revert(pool_2->second);
-        buffer_array_.erase(pool_2);
-    }
+void MemoryBuffer::RevertPool(MemoryBuffer* buffer) {
+    memory_pool.Revert(buffer);
 }
 
 absl::Status MemoryBuffer::Receive(int s) {
