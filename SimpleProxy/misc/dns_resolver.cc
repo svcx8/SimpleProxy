@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <shared_mutex>
 #include <unordered_map>
 
 #include "misc/configuration.hh"
@@ -34,9 +35,9 @@ public:
     }
 
     sockaddr* Get(std::string key) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (cached_map_.count(key)) {
-            Node* temp = cached_map_[key];
+        std::shared_lock<std::shared_mutex> lk(mutex_);
+        if (auto itor = cached_map_.find(key); itor != cached_map_.end()) {
+            Node* temp = itor->second;
             MakeRecently(temp);
             return temp->val_;
         }
@@ -44,12 +45,10 @@ public:
     }
 
     void Put(std::string key, sockaddr* value) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (cached_map_.count(key)) {
-
-            Node* temp = cached_map_[key];
+        std::lock_guard<std::shared_mutex> lk(mutex_);
+        if (auto itor = cached_map_.find(key); itor != cached_map_.end()) {
+            Node* temp = itor->second;
             temp->val_ = value;
-
             MakeRecently(temp);
         } else {
             Node* cur = new Node(key, value);
@@ -84,11 +83,11 @@ private:
         MoveToHead(temp);
     }
 
-    std::unordered_map<std::string, Node*> cached_map_;
     int capacity_;
     Node* head_;
     Node* tail_;
-    std::mutex mutex_;
+    std::unordered_map<std::string, Node*> cached_map_;
+    mutable std::shared_mutex mutex_;
 };
 
 static LRUCache* cache_ = new LRUCache(512);

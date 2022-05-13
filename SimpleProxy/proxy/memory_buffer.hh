@@ -38,14 +38,14 @@ public:
     }
 
     absl::Status ReceiveFromClient(int s) {
-        auto&& res = Receive(s);
+        auto res = Receive(s);
         if (!res.ok()) {
             LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status RecvFromServer(int s) {
-        auto&& res = Receive(s);
+        auto res = Receive(s);
         if (!res.ok()) {
             LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
@@ -53,14 +53,14 @@ public:
     }
 
     absl::Status ProxyConn_SendToServer(int s) {
-        auto&& res = Send(s);
+        auto res = Send(s);
         if (!res.ok()) {
             LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status ProxyClient_SendToServer(int s) {
-        auto&& res = Send(s);
+        auto res = Send(s);
         if (!res.ok()) {
             LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
@@ -68,14 +68,14 @@ public:
     }
 
     absl::Status ProxyConn_SendToClient(int s) {
-        auto&& res = Send(s);
+        auto res = Send(s);
         if (!res.ok()) {
             LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
         return res;
     }
     absl::Status ProxyClient_SendToClient(int s) {
-        auto&& res = Send(s);
+        auto res = Send(s);
         if (!res.ok()) {
             LOG("[L#%d] [%d] ERROR: sys: %s absl: %s", __LINE__, s, strerror(errno), res.ToString().c_str());
         }
